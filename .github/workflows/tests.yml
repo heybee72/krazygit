@@ -1,0 +1,16 @@
+name: tests
+on: [push, pull_request]
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Git identity for the test commits
+        run: git config --global user.name "CI" && git config --global user.email ci@example.com
+      - name: Server and Git operations
+        run: python3 test_krazygit.py
+      - name: Conflict suggestions
+        run: node test_suggestions.js

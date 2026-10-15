@@ -1,0 +1,1722 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KrazyGit</title>
+<style>
+:root {
+  --bg: #FFFFFF; --side: #F3F4F6; --panel: #FFFFFF; --sunk: #F7F8FA; --ink: #1B1F24; --muted: #5F6B7A; --faint: #98A2B3;
+  --rule: #E3E6EA; --hover: #EEF0F3; --sel: #E9EDFF;
+  --accent: #2F4BDA; --accent-ink: #FFFFFF; --accent-soft: #EDF0FF; --accent-line: #CBD3FF;
+  --add: #157F3D; --add-bg: #E5F5EB; --del: #B42318; --del-bg: #FDECEA;
+  --warn: #8F5600; --warn-bg: #FFF5DD; --warn-line: #F0C35B; --danger: #C4320A; --danger-ink: #FFFFFF; --ok: #157F3D; --ok-bg: #E7F6EC;
+  --pop-shadow: 0 12px 32px rgba(16, 24, 40, .16), 0 2px 6px rgba(16, 24, 40, .08);
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17191D; --side: #1D2026; --panel: #1F2228; --sunk: #15171B; --ink: #E8EAED; --muted: #A0A8B5; --faint: #6E7684;
+    --rule: #2D323A; --hover: #262A32; --sel: #252D52;
+    --accent: #8C9EFF; --accent-ink: #0D1226; --accent-soft: #212849; --accent-line: #3A4680;
+    --add: #7FD3A0; --add-bg: #14301F; --del: #F29C9C; --del-bg: #3A1717;
+    --warn: #F3C66E; --warn-bg: #33270C; --warn-line: #8C6A1E; --danger: #FF8A80; --danger-ink: #2B0A06; --ok: #7FD3A0; --ok-bg: #14301F;
+    --pop-shadow: 0 12px 32px rgba(0, 0, 0, .5);
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box }
+[hidden] { display: none !important }
+html, body { height: 100% }
+body { margin: 0; display: grid; grid-template-columns: 236px minmax(0, 1fr); background: var(--bg); color: var(--ink); font: 14px/1.45 var(--font); -webkit-font-smoothing: antialiased }
+h1, h2, h3, h4 { margin: 0; line-height: 1.25 }
+p { margin: 0 }
+code, .mono { font-family: var(--mono); font-size: 12.5px }
+.ic { flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round }
+.ic.fill { fill: currentColor; stroke: none }
+.faint { color: var(--faint) }
+.hint { color: var(--muted); font-size: 13px }
+.spacer { flex: 1 }
+.ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0 }
+
+/* controls */
+button, .btnlike { font: inherit; font-size: 13px; font-weight: 500; line-height: 1; display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 11px;
+  border-radius: 7px; border: 1px solid var(--rule); background: var(--panel); color: var(--ink); cursor: pointer; white-space: nowrap; user-select: none }
+button:hover, .btnlike:hover { background: var(--hover) }
+button:disabled { opacity: .45; cursor: default; background: var(--panel) }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink) }
+button.primary:hover { filter: brightness(1.07); background: var(--accent) }
+button.danger { color: var(--danger) }
+button.danger-btn { background: var(--danger); border-color: var(--danger); color: var(--danger-ink) }
+button.ghost { border-color: transparent; background: transparent }
+button.ghost:hover { background: var(--hover) }
+button.link { border: 0; background: none; color: var(--accent); padding: 0 2px; height: auto }
+button.link:hover { text-decoration: underline; background: none }
+button.icon, .btnlike.icon { width: 30px; padding: 0; justify-content: center }
+button.big { height: 38px; padding: 0 18px; font-size: 14px; font-weight: 600; border-radius: 9px }
+button.wide { width: 100%; justify-content: center }
+button.chip { height: 26px; padding: 0 10px; border-radius: 999px; font-size: 12.5px }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+input, textarea, select { font: inherit; font-size: 13px; color: var(--ink); background: var(--sunk); border: 1px solid var(--rule); border-radius: 7px; padding: 6px 10px; min-width: 0; height: 30px }
+textarea { width: 100%; resize: vertical; display: block; height: auto; line-height: 1.45 }
+input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); background: var(--panel) }
+input[type=checkbox] { width: 15px; height: 15px; margin: 0; padding: 0; accent-color: var(--accent); flex: none; box-shadow: none }
+.search { position: relative; display: flex; align-items: center }
+.search .ic { position: absolute; left: 9px; color: var(--faint); pointer-events: none }
+.search input { padding-left: 29px; width: 100% }
+.btns { display: flex; gap: 6px; align-items: center; flex-wrap: wrap }
+
+/* popovers (menus, pickers) */
+details.pop { position: relative }
+details.pop > summary { list-style: none }
+details.pop > summary::-webkit-details-marker { display: none }
+.popbox { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; min-width: 240px; max-width: 360px; background: var(--panel); border: 1px solid var(--rule);
+  border-radius: 10px; box-shadow: var(--pop-shadow); padding: 6px; display: grid; gap: 1px }
+.popbox.right { left: auto; right: 0 }
+.popbox button { justify-content: flex-start; border: 0; background: none; width: 100%; height: 32px; gap: 10px; padding: 0 10px }
+.popbox button:hover { background: var(--hover) }
+.popbox button .faint { margin-left: auto; font-size: 12px }
+.popbox hr { border: 0; border-top: 1px solid var(--rule); margin: 4px 0; width: 100% }
+.popbox .search { margin: 2px 2px 6px }
+.poplist { max-height: 320px; overflow: auto; display: grid; gap: 1px }
+
+/* sidebar */
+aside { background: var(--side); border-right: 1px solid var(--rule); display: flex; flex-direction: column; min-height: 0; padding: 12px 10px; overflow: auto }
+.phead { display: flex; align-items: center; justify-content: space-between; padding: 0 2px 4px 10px; font-size: 11.5px; color: var(--faint); font-weight: 600 }
+.phead button { height: 24px; width: 24px }
+#repoSearch { margin: 0 2px 6px }
+.plist { display: grid; gap: 1px; max-height: 36vh; overflow: auto }
+.plist button { justify-content: flex-start; border: 0; background: none; height: auto; min-height: 34px; padding: 5px 8px; gap: 10px; border-radius: 8px; text-align: left; font-weight: 500 }
+.plist button:hover { background: var(--hover) }
+.plist button.on { background: var(--sel); color: var(--accent) }
+.plist .who b { font-size: 13.5px; font-weight: 600 }
+.tile { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; font-weight: 700; color: #fff; background: var(--accent); flex: none; font-size: 14px }
+.tile.sm { width: 22px; height: 22px; border-radius: 6px; font-size: 11px }
+.who { min-width: 0; flex: 1 }
+.who b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px }
+.who span { display: block; font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+nav.side { display: grid; gap: 1px; margin-top: 10px; padding-top: 6px; border-top: 1px solid var(--rule) }
+nav.side button { justify-content: flex-start; border: 0; background: none; height: 32px; padding: 0 10px; gap: 10px; border-radius: 7px; font-weight: 500 }
+nav.side button .ic { color: var(--muted) }
+nav.side button:hover { background: var(--hover) }
+nav.side button.on { background: var(--sel); color: var(--accent) }
+nav.side button.on .ic { color: var(--accent) }
+nav.side button.warn { color: var(--warn); background: var(--warn-bg) }
+nav.side button.warn .ic { color: var(--warn) }
+nav.side .count { margin-left: auto; font-size: 11.5px; color: var(--muted); font-weight: 600 }
+nav.side .group { font-size: 11.5px; color: var(--faint); padding: 16px 10px 4px; font-weight: 600 }
+.side-foot { margin-top: auto; padding-top: 10px; display: grid; gap: 1px }
+.side-foot > button { justify-content: flex-start; border: 0; background: none; height: 30px; color: var(--muted); gap: 10px; padding: 0 10px }
+.side-foot > button:hover { background: var(--hover); color: var(--ink) }
+#gitlog { border-top: 1px solid var(--rule); padding: 8px 2px 6px; margin-bottom: 4px }
+#gitlog summary { cursor: pointer; font-size: 12.5px; color: var(--muted); padding: 0 8px; display: flex; gap: 8px; align-items: center }
+#gitlog p { font-size: 11.5px; color: var(--faint); margin: 6px 8px }
+#cmds { font: 11.5px/1.45 var(--mono); padding: 0 8px; list-style: none; max-height: 30vh; overflow: auto; margin: 4px 0 0 }
+#cmds li { padding: 3px 0; border-bottom: 1px solid var(--rule); word-break: break-all; color: var(--muted) }
+#cmds li.bad { color: var(--danger) }
+
+/* main */
+main { display: flex; flex-direction: column; min-width: 0; min-height: 0 }
+.toolbar { display: flex; align-items: center; gap: 8px; padding: 10px 20px; border-bottom: 1px solid var(--rule); flex-wrap: wrap }
+.picker > summary { height: 32px; font-weight: 600 }
+.picker > summary .ic:first-child { color: var(--accent) }
+.picker .popbox { width: 320px }
+#content { flex: 1; overflow: auto; padding: 20px 24px 90px; min-height: 0 }
+.vhead { display: flex; align-items: center; gap: 8px; margin: 22px 0 12px; flex-wrap: wrap }
+.vhead h2 { font-size: 20px; font-weight: 650; margin-right: auto }
+.vhead.first { margin-top: 0 }
+
+/* the next-step nudge */
+.next { display: flex; align-items: center; gap: 16px; padding: 16px 18px; border-radius: 12px; background: var(--accent-soft); border: 1px solid var(--accent-line) }
+.next .tilebig { width: 44px; height: 44px; border-radius: 11px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; flex: none }
+.next .t { flex: 1; min-width: 0 }
+.next .t b { display: block; font-size: 16px; font-weight: 650 }
+.next .t span { display: block; color: var(--muted); margin-top: 2px }
+.next .acts { display: flex; gap: 8px; flex-wrap: wrap }
+.next.warn { background: var(--warn-bg); border-color: var(--warn-line) }
+.next.warn .tilebig { background: var(--warn-line); color: #3D2600 }
+.next.tip { background: var(--sunk); border-color: var(--rule) }
+.next.tip .tilebig { background: var(--hover); color: var(--ink) }
+.next.done { background: var(--ok-bg); border-color: transparent }
+.next.done .tilebig { background: var(--ok); color: var(--bg) }
+.tips { margin-top: 6px }
+.tips ul { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 6px }
+.tips li { display: flex; align-items: center; gap: 12px; padding: 8px 10px 8px 14px; border-radius: 9px; border: 1px solid var(--rule) }
+.tips li > .ic { color: var(--muted) }
+.tips li.warn > .ic { color: var(--warn) }
+.tips li > span { flex: 1; min-width: 0 }
+
+/* lists */
+.list { border: 1px solid var(--rule); border-radius: 10px; background: var(--panel); overflow: hidden }
+.lhead { display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-bottom: 1px solid var(--rule); background: var(--sunk); font-size: 12.5px; color: var(--muted); font-weight: 600 }
+.row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--rule) }
+.row:last-child { border-bottom: 0 }
+.row.sel { background: var(--sel) }
+.row > .main { flex: 1; min-width: 0 }
+.row .name { font-weight: 600; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; overflow-wrap: anywhere }
+.row .meta { font-size: 12.5px; color: var(--muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.row .acts { display: flex; gap: 6px; align-items: center; flex: none }
+.row > .lead { color: var(--muted) }
+.row > .diff { flex-basis: 100%; max-height: 50vh }
+.rows-wrap .row { flex-wrap: wrap }
+.badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--hover); color: var(--muted); white-space: nowrap }
+.badge.here { background: var(--accent-soft); color: var(--accent) }
+.badge.ok { background: var(--ok-bg); color: var(--ok) }
+.badge.warn { background: var(--warn-bg); color: var(--warn) }
+.badge.mono { font-family: var(--mono); font-weight: 500 }
+.empty { color: var(--muted); padding: 36px 16px; text-align: center; display: grid; justify-items: center; gap: 6px }
+.empty > .ic { color: var(--faint); margin-bottom: 4px }
+.empty b { color: var(--ink) }
+.empty .btns { justify-content: center; margin-top: 8px }
+.banner { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 12px 16px; border-radius: 10px; background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn-line); margin-bottom: 14px }
+.banner > div { flex: 1; min-width: 240px }
+
+/* branches */
+.seg { display: inline-flex; padding: 3px; border-radius: 9px; background: var(--hover); gap: 2px }
+.seg button { border: 0; background: transparent; height: 28px; color: var(--muted) }
+.seg button.on { background: var(--panel); color: var(--ink); box-shadow: 0 1px 2px rgba(16, 24, 40, .12) }
+.seg .n { font-size: 11.5px; color: var(--faint); font-weight: 600 }
+.filters { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px }
+.filters .search { flex: 1 1 220px; max-width: 340px }
+.bulk { position: sticky; bottom: 14px; margin-top: 14px; display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 16px; border-radius: 12px;
+  background: var(--ink); color: var(--bg); box-shadow: var(--pop-shadow); flex-wrap: wrap }
+.bulk b { margin-right: auto }
+.bulk button { background: transparent; color: inherit; border-color: color-mix(in srgb, currentColor 30%, transparent) }
+.bulk button:hover { background: color-mix(in srgb, currentColor 12%, transparent) }
+.bulk button.danger-btn { background: var(--danger); border-color: var(--danger); color: var(--danger-ink) }
+
+/* changes and history: two panes */
+.split { display: grid; grid-template-columns: minmax(220px, 320px) minmax(0, 1fr); border: 1px solid var(--rule); border-radius: 10px; background: var(--panel); min-height: 58vh; overflow: hidden }
+.pane-l { border-right: 1px solid var(--rule); display: flex; flex-direction: column; min-width: 0; max-height: 74vh }
+.pane-r { min-width: 0; overflow: auto; max-height: 74vh; padding: 16px 18px }
+.files { list-style: none; margin: 0; padding: 4px; flex: 1; overflow: auto }
+.files li { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 7px; cursor: pointer }
+.files li:hover { background: var(--hover) }
+.files li.sel { background: var(--sel) }
+.fname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; min-width: 0 }
+.fname bdi { direction: ltr }
+.dir { color: var(--faint) }
+.st { width: 18px; height: 18px; border-radius: 5px; display: grid; place-items: center; font: 700 12px/1 var(--mono); flex: none }
+.st.a { background: var(--add-bg); color: var(--add) }
+.st.m { background: var(--accent-soft); color: var(--accent) }
+.st.d { background: var(--del-bg); color: var(--del) }
+.st.r { background: var(--hover); color: var(--ink) }
+.st.c { background: var(--warn-bg); color: var(--warn) }
+.commit { border-top: 1px solid var(--rule); padding: 12px; display: grid; gap: 8px; background: var(--sunk) }
+.commit .opts { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted) }
+.commit label { display: flex; gap: 6px; align-items: center; cursor: pointer }
+.diff-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px }
+.diff-head b { font-family: var(--mono); font-size: 13px; word-break: break-all }
+.dtbar { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 12.5px; flex-basis: 100% }
+.dtbar .plus { color: var(--add); font-weight: 600 }
+.dtbar .minus { color: var(--del); font-weight: 600 }
+.seg.sm { padding: 2px }
+.seg.sm button { height: 24px; font-size: 12px; padding: 0 9px }
+.diff { border: 1px solid var(--rule); border-radius: 8px; overflow: auto; flex-basis: 100% }
+table.dt { width: 100%; border-collapse: collapse; table-layout: fixed; font: 12.5px/1.55 var(--mono) }
+.dt col.cn { width: 46px }
+.dt td { padding: 0 10px 0 calc(10px + 1.1em); vertical-align: top; white-space: pre-wrap; overflow-wrap: anywhere }
+.dt td.n { color: var(--faint); text-align: right; padding: 0 8px; user-select: none; white-space: nowrap; border-right: 1px solid var(--rule) }
+.dt.split4 td.n:nth-child(3) { border-left: 1px solid var(--rule) }
+.dt .add { background: var(--add-bg) }
+.dt .del { background: var(--del-bg) }
+.dt td.c.add, .dt tr.add td.c { color: var(--add) }
+.dt td.c.del, .dt tr.del td.c { color: var(--del) }
+.dt td.c.add::before, .dt tr.add td.c::before { content: "+"; display: inline-block; width: 1.1em; margin-left: -1.1em }
+.dt td.c.del::before, .dt tr.del td.c::before { content: "−"; display: inline-block; width: 1.1em; margin-left: -1.1em }
+.dt td.e { background: var(--sunk) }
+.dt tr.file td { font: 600 13px/1.4 var(--font); background: var(--sunk); padding: 8px 12px; border-top: 1px solid var(--rule) }
+.dt tr.file:first-child td { border-top: 0 }
+.dt tr.hunk td { color: var(--accent); background: var(--sunk); padding: 2px 12px; font-size: 12px }
+.dt tr.note td, .dt tr.sidehead td { color: var(--muted); padding: 3px 12px; font: 12px/1.4 var(--font) }
+.dt tr.sidehead td { font-weight: 600; border-bottom: 1px solid var(--rule) }
+.commits { list-style: none; margin: 0; padding: 4px; overflow: auto }
+.commits li { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-radius: 8px; cursor: pointer }
+.commits li:hover { background: var(--hover) }
+.commits li.sel { background: var(--sel) }
+.commits .main { min-width: 0; flex: 1 }
+.commits .subj { font-weight: 600; overflow-wrap: anywhere }
+.avatar { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 10.5px; font-weight: 700; color: #fff; flex: none }
+.detail h3 { font-size: 17px; font-weight: 650 }
+.detail .body { white-space: pre-wrap; margin-top: 8px; color: var(--muted) }
+.detail .by { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; margin: 10px 0 14px }
+.detail h4 { font-size: 13px; color: var(--muted); margin: 18px 0 8px }
+
+/* forms */
+.card { border: 1px solid var(--rule); border-radius: 10px; padding: 16px 18px; background: var(--panel); margin-bottom: 14px }
+.card h3 { font-size: 15px; font-weight: 650; display: flex; align-items: center; gap: 8px; margin-bottom: 4px }
+.card h3 .ic { color: var(--muted) }
+.card > .hint { margin-bottom: 12px }
+.form { display: flex; gap: 8px; flex-wrap: wrap }
+.form input { flex: 1 1 200px }
+.chips { display: flex; gap: 6px; flex-wrap: wrap }
+ol.steps { padding-left: 20px; margin: 0 0 12px; color: var(--muted); display: grid; gap: 4px }
+ol.steps a, .help a { color: var(--accent) }
+.switch { display: flex; gap: 10px; align-items: center; cursor: pointer; font-weight: 500 }
+pre.out { font: 12.5px/1.5 var(--mono); background: var(--sunk); border: 1px solid var(--rule); border-radius: 8px; padding: 12px 14px; overflow: auto; max-height: 60vh; white-space: pre-wrap; margin-top: 12px }
+.help dl { margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px }
+.help dt { font-weight: 650; color: var(--ink) }
+.help dd { margin: 2px 0 0; color: var(--muted) }
+dialog .help dl { grid-template-columns: 1fr }
+
+/* conflicts */
+.cf-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px }
+.cf-files { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px }
+.cf-files button.on { background: var(--sel); border-color: var(--accent-line); color: var(--accent) }
+.cf-head h3 { margin: 0; font-family: var(--mono); font-size: 14px; word-break: break-all }
+pre.ctx, .blk pre { font: 12.5px/1.55 var(--mono); margin: 0; padding: 8px 12px; white-space: pre-wrap; word-break: break-word }
+pre.ctx { color: var(--muted) }
+.gap { display: block; font-family: var(--font); font-size: 12px; padding: 2px 0; border-block: 1px dashed var(--rule); margin: 4px 0 }
+.blk { border: 1px solid var(--warn-line); border-radius: 9px; margin: 8px 0; overflow: hidden }
+.blk.done { border-color: var(--rule); border-left: 3px solid var(--add) }
+.blk-bar { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 6px 8px 6px 12px; background: var(--sunk); font-size: 12.5px }
+.blk-bar.under { justify-content: flex-start; border-top: 1px solid var(--rule) }
+.sides { display: grid; grid-template-columns: 1fr 1fr }
+.side + .side { border-left: 1px solid var(--rule) }
+.side.mine pre { background: var(--accent-soft) }
+.side.theirs pre { background: var(--add-bg) }
+.blk textarea { border: 0; border-radius: 0; font: 12.5px/1.55 var(--mono); min-height: 120px }
+.advice { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--accent-soft); border-bottom: 1px solid var(--rule); font-size: 13px }
+.advice.warn { background: var(--warn-bg); color: var(--warn) }
+.advice > div { flex: 1 }
+.advice > .ic { color: var(--accent) }
+.advice.warn > .ic { color: var(--warn) }
+.side pre .ln { display: block; min-height: 1.55em; padding-left: 6px; margin-left: -6px }
+.side pre .same { opacity: .5 }
+.side pre .uniq { font-weight: 600 }
+.side.mine pre .uniq { box-shadow: inset 3px 0 var(--accent) }
+.side.theirs pre .uniq { box-shadow: inset 3px 0 var(--add) }
+.blk-bar .badge { margin-left: auto }
+details.orig { border-top: 1px solid var(--rule) }
+details.orig summary { cursor: pointer; padding: 6px 12px; font-size: 12.5px; color: var(--muted) }
+details.orig pre { background: var(--sunk); color: var(--muted) }
+textarea.big { min-height: 55vh; font: 12.5px/1.55 var(--mono) }
+
+/* overlays */
+#working { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 40; padding: 7px 14px; border-radius: 999px; background: var(--ink); color: var(--bg); font-size: 13px; font-weight: 600; box-shadow: var(--pop-shadow) }
+#toasts { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); display: grid; gap: 8px; z-index: 40; width: min(560px, calc(100vw - 32px)) }
+.toast { display: flex; gap: 10px; align-items: center; padding: 10px 10px 10px 16px; border-radius: 10px; background: var(--ink); color: var(--bg); box-shadow: var(--pop-shadow); animation: rise .18s ease-out }
+.toast.err { background: var(--danger); color: var(--danger-ink); align-items: flex-start }
+.toast.warn { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn-line) }
+.toast > div { flex: 1 }
+.toast details { margin-top: 6px; font-size: 13px }
+.toast pre { white-space: pre-wrap; font: 12px/1.45 var(--mono); max-height: 30vh; overflow: auto; margin: 6px 0 0 }
+.toast .undo { background: transparent; color: inherit; border-color: color-mix(in srgb, currentColor 40%, transparent); font-weight: 600 }
+.toast .x { border: 0; background: none; color: inherit; padding: 0 6px; font-size: 18px; height: 26px }
+@keyframes rise { from { transform: translateY(8px); opacity: 0 } }
+dialog { border: 1px solid var(--rule); border-radius: 12px; padding: 22px 24px; width: min(520px, calc(100vw - 32px)); background: var(--panel); color: var(--ink); box-shadow: var(--pop-shadow) }
+dialog::backdrop { background: rgba(10, 15, 20, .4) }
+dialog h2 { font-size: 18px; margin-bottom: 8px }
+dialog .body { color: var(--muted); margin-bottom: 16px }
+dialog .body ul { margin: 8px 0; padding-left: 20px; max-height: 30vh; overflow: auto }
+dialog .body p + p, dialog .body ul + p { margin-top: 8px }
+dialog input { width: 100%; margin-bottom: 16px; height: 34px }
+dialog .btns { justify-content: flex-end }
+body::before { content: ""; position: fixed; top: 0; left: 0; height: 3px; width: 30%; background: var(--accent); opacity: 0; z-index: 50; pointer-events: none }
+body.busy::before { opacity: 1; animation: slide 1s ease-in-out infinite }
+body.busy { cursor: progress }
+@keyframes slide { from { left: -30% } to { left: 100% } }
+@media (prefers-reduced-motion: reduce) { body.busy::before { animation: none; width: 100%; opacity: .6 } .toast { animation: none } }
+@media (max-width: 760px) {
+  body { grid-template-columns: 1fr; height: auto }
+  aside { border-right: 0; border-bottom: 1px solid var(--rule); overflow: visible }
+  nav.side { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) }
+  nav.side .group { display: none }
+  #content { padding: 16px 16px 90px; overflow: visible }
+  .split { grid-template-columns: 1fr }
+  .pane-l { border-right: 0; border-bottom: 1px solid var(--rule) }
+  .sides { grid-template-columns: 1fr }
+  .side + .side { border-left: 0; border-top: 1px solid var(--rule) }
+  .next { flex-wrap: wrap }
+}
+</style>
+</head>
+<body>
+<aside>
+  <div class="phead"><span>Projects</span><button class="icon ghost" data-act="addRepo" data-ic="plus" title="Add a project folder" aria-label="Add a project folder"></button></div>
+  <div class="search" id="repoSearch" hidden><span data-ic="search"></span><input id="repoFilter" type="search" placeholder="Find a project" aria-label="Find a project" autocomplete="off"></div>
+  <div class="plist" id="repos"></div>
+  <nav class="side" id="nav" aria-label="Sections"></nav>
+  <div class="side-foot">
+    <details id="gitlog">
+      <summary><span data-ic="term"></span>What Git did</summary>
+      <p>The exact commands KrazyGit ran for you.</p>
+      <ol id="cmds"></ol>
+    </details>
+    <button data-act="help" data-ic="help">How Git works</button>
+    <button data-act="quit" data-ic="power">Quit KrazyGit</button>
+  </div>
+</aside>
+<main id="main"></main>
+<div id="working" role="status" hidden></div>
+<div id="toasts" role="status" aria-live="polite"></div>
+<dialog id="dlg"></dialog>
+<script>
+const TOKEN = '__TOKEN__'
+const $ = s => document.querySelector(s)
+const main = $('#main'), dlg = $('#dlg')
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`)
+const plural = (n, word, many = word + 's') => `${n} ${n === 1 ? word : many}`
+// Turn whatever someone types into a name Git accepts ("my new idea?" becomes "my-new-idea").
+const cleanName = s => s.trim().replace(/\s+/g, '-').replace(/[~^:?*[\]\\\x00-\x1f\x7f]+/g, '-').replace(/@\{/g, '-')
+  .replace(/\.{2,}/g, '.').replace(/\/{2,}/g, '/').replace(/^[-./]+|[-./]+$/g, '').replace(/\.lock$/i, '')
+const hostName = url => /github\.com/.test(url) ? 'GitHub' : /gitlab/.test(url) ? 'GitLab' : /bitbucket/.test(url) ? 'Bitbucket' : 'the server'
+const mb = n => `${Math.round(n / 1048576)} MB`
+const hue = s => [...String(s)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7)
+const color = s => `hsl(${hue(s)} 50% 46%)`
+const initials = s => String(s).split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase() || '?'
+// New files that look like passwords or keys (.env.example and friends are fine to commit).
+const SECRET = /(^|\/)(\.env(?!\.(example|sample|template|dist)$)(\.[\w.-]+)?|id_(rsa|dsa|ecdsa|ed25519)|[^/]*\.(pem|key|p12|pfx|jks|keystore)|credentials(\.json)?|[^/]*secrets?\.(json|ya?ml|txt|env))$/i
+const BIG = 50 * 1048576
+const OLD_DAYS = 90
+const HELP = `<dl>
+  <dt>Commit</dt><dd>A save point: a snapshot of your files with a short note. You can always go back to one.</dd>
+  <dt>Branch</dt><dd>A separate line of work. Try an idea without touching your main code, then merge it in.</dd>
+  <dt>Merge</dt><dd>Bring the commits from one branch into another.</dd>
+  <dt>Conflict</dt><dd>Both sides changed the same lines. You pick what to keep, side by side.</dd>
+  <dt>Sync</dt><dd>Download new commits from GitHub, then upload yours (pull and push).</dd>
+  <dt>Stash</dt><dd>A shelf for changes you’re not ready to commit yet.</dd>
+  <dt>Safety net</dt><dd>Most actions offer Undo. Deleted branches go to the Recycle bin, and Undo history can rewind a branch.</dd></dl>`
+const listJoin = a => a.length > 4 ? `${a.slice(0, 3).join(', ')} and ${a.length - 3} more` : a.length > 1 ? `${a.slice(0, -1).join(', ')} and ${a.at(-1)}` : a[0]
+const HIDDEN = new Set((() => { try { return JSON.parse(sessionStorage.getItem('krazygit.hidden') || '[]') } catch { return [] } })())
+const hideFor = key => { HIDDEN.add(key); try { sessionStorage.setItem('krazygit.hidden', JSON.stringify([...HIDDEN])) } catch {} }
+const store = (k, v) => { try { return v === undefined ? localStorage.getItem('krazygit.' + k) : localStorage.setItem('krazygit.' + k, v) } catch { return null } }
+const MAIN = ['main', 'master', 'develop', 'dev', 'trunk']
+const MARK = /^(<{7}|={7}|>{7})( |\r?$)/m
+const JUNK = /(^|\/)(node_modules|\.DS_Store|\.env|vendor|dist|__pycache__|\.idea|\.vscode|\.venv|venv)(\/|$)/
+const S = { repos: [], repo: null, filter: '', adv: store('adv') === '1', closed: null, tipsOpen: false, diffMode: store('diffMode') || 'split' }
+const fresh = () => Object.assign(S, { st: null, err: null, tab: 'changes', f: {}, amend: false, sel: null, diff: '', log: [], logRef: 'HEAD',
+  logLimit: 100, search: '', commit: null, bin: null, lost: null, reflog: null, stashView: null, stashDiff: '', cf: null, cfPath: null, cmdOut: '', fetched: 0,
+  bview: 'local', bq: '', bsort: 'recent', bremote: '', bsel: new Set() })
+fresh()
+const val = (id, dflt = '') => S.f[id] ?? dflt
+
+// ---------- icons (24px line icons) ----------
+const ICONS = {
+  edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+  branch: '<circle cx="6" cy="5.5" r="2.5"/><circle cx="6" cy="18.5" r="2.5"/><circle cx="18" cy="7" r="2.5"/><path d="M6 8v8"/><path d="M18 9.5c0 4.5-12 3.5-12 6.5"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  sync: '<path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 20v-4h-4"/>',
+  alert: '<path d="M12 3.5 2.5 20h19Z"/><path d="M12 10v4"/><path d="M12 17h.01"/>',
+  box: '<rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10h14V9"/><path d="M10 13h4"/>',
+  tag: '<path d="M3 12V4h8l10 10-8 8Z"/><circle cx="7.5" cy="8.5" r="1.5"/>',
+  trash: '<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v5M14 11v5"/>',
+  undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+  term: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3"/><path d="M13 15h4"/>',
+  sliders: '<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>',
+  folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/>',
+  refresh: '<path d="M20 12a8 8 0 1 1-2.3-5.7L20 8.5"/><path d="M20 3.5v5h-5"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
+  check: '<path d="m5 12.5 4.5 4.5L19 7"/>',
+  checkc: '<circle cx="12" cy="12" r="9"/><path d="m8 12.5 3 3 5-6"/>',
+  chev: '<path d="m6 9 6 6 6-6"/>',
+  dots: '<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>',
+  merge: '<circle cx="6" cy="5.5" r="2.5"/><circle cx="6" cy="18.5" r="2.5"/><circle cx="18" cy="12" r="2.5"/><path d="M6 8v8"/><path d="M6 8.5c0 3.5 5 3.5 9.5 3.5"/>',
+  cloud: '<path d="M7 18a4.5 4.5 0 0 1-.5-9A6 6 0 0 1 18 8.5a4.5 4.5 0 0 1-.5 9.5Z"/>',
+  down: '<path d="M12 4v12M7 11l5 5 5-5"/><path d="M5 20h14"/>',
+  up: '<path d="M12 20V8M7 13l5-5 5 5"/><path d="M5 4h14"/>',
+  help: '<circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.4c-.6.3-1 .8-1 1.5v.4"/><path d="M12 17h.01"/>',
+  power: '<path d="M12 3v8"/><path d="M6.4 6.4a8 8 0 1 0 11.2 0"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  laptop: '<rect x="4" y="5" width="16" height="11" rx="1.5"/><path d="M2 19h20"/>',
+  x: '<path d="M6 6l12 12M18 6 6 18"/>',
+  file: '<path d="M14 3H6v18h12V7Z"/><path d="M14 3v4h4"/>',
+  eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+  arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/>',
+  rewind: '<path d="M11 18 4 12l7-6z"/><path d="M20 18l-7-6 7-6z"/>',
+  bulb: '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3Z"/>',
+  shield: '<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6Z"/>',
+}
+const ic = (n, size = 16) => `<svg class="ic${n === 'dots' ? ' fill' : ''}" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`
+const attrs = data => Object.entries(data).map(([k, v]) => `data-${k}="${esc(v)}"`).join(' ')
+function btn(label, act, data = {}, cls = '', disabled = false, icon = '', title = '') {
+  return `<button class="${cls}" data-act="${act}" ${attrs(data)} ${disabled ? 'disabled' : ''} ${title ? `title="${esc(title)}"` : ''}>${icon ? ic(icon) : ''}${esc(label)}</button>`
+}
+const iconBtn = (icon, title, act, data = {}, cls = '') =>
+  `<button class="icon ghost ${cls}" data-act="${act}" ${attrs(data)} title="${esc(title)}" aria-label="${esc(title)}">${ic(icon)}</button>`
+const menu = items => `<details class="pop"><summary class="btnlike icon ghost" title="More actions" aria-label="More actions">${ic('dots')}</summary>
+  <div class="popbox right">${items.filter(Boolean).join('')}</div></details>`
+
+// ---------- talking to the server ----------
+let busyN = 0, workingTimer
+const WORKING = { sync: 'Syncing with the server…', fetch: 'Checking the server…', lost: 'Searching for lost work…', merge: 'Merging…', rebase: 'Rebasing…',
+  commit: 'Committing…', switch: 'Switching branch…', add_repo: 'Looking inside that folder…', merge_preview: 'Checking for clashes…', raw: 'Running…',
+  publish_branches: 'Uploading…', delete_remote_branches: 'Deleting from the server…', track_branches: 'Making copies…' }
+function busy(on, op) {
+  busyN += on ? 1 : -1
+  document.body.classList.toggle('busy', busyN > 0)
+  clearTimeout(workingTimer)
+  const pill = $('#working')
+  if (busyN > 0 && on) workingTimer = setTimeout(() => { pill.textContent = WORKING[op] || 'Working…'; pill.hidden = false }, 400)
+  if (busyN === 0) pill.hidden = true
+}
+// bg: background calls (ping, auto-fetch) don't show the busy bar and fail silently.
+async function api(op, args = {}, bg = false) {
+  if (!bg) busy(true, op)
+  let r
+  try {
+    const res = await fetch('/api', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Token': TOKEN }, body: JSON.stringify({ op, ...args }) })
+    r = await res.json()
+  } catch {
+    r = { ok: false, error: 'KrazyGit is closed. Open it again to keep going.' }
+    if (!S.closed) { S.closed = 'stopped'; render() }
+  } finally {
+    if (!bg) busy(false)
+  }
+  if (r.cmds?.length) logCmds(r.cmds, r.ok)
+  if (!r.ok) throw r
+  return r.data
+}
+
+// Run a project action, report it (with an Undo button when undo(d) returns one), then reload everything.
+async function act(op, args = {}, done, undo) {
+  S.cf = null
+  let d
+  try { d = await api(op, { repo: S.repo, ...args }) } catch (e) { showError(e); await refresh(); return null }
+  if (d?.conflicts) toast('Some changes clash. Choose what to keep in Conflicts.', 'warn')
+  else if (done) toast(typeof done === 'function' ? done(d) : done, 'ok', null, undo?.(d))
+  await refresh()
+  return d ?? true
+}
+// Undo helpers: move the branch back to where it was, or pull items back out of the Recycle bin.
+const undoMove = (mode = 'keep') => d => d?.before && (() => act('reset_to', { sha: d.before, mode }, 'Undone.'))
+const undoBin = kind => d => d?.ref && (() => act('restore', { kind, sha: d.sha, name: d.name, ref: d.ref }, 'Undone.'))
+const undoAll = (kind, list) => list.length ? async () => {
+  for (const r of list) await api('restore', { repo: S.repo, kind, sha: r.sha, name: r.name, ref: r.ref })
+  toast('Undone.')
+  await refresh()
+} : null
+const undoDiscard = d => d?.backup && (() => act('stash_apply', { ref: d.backup }, 'Undone. Your changes are back.'))
+
+async function refresh() {
+  if (!S.repo || S.closed) return render()
+  try {
+    const st = await api('state', { repo: S.repo })
+    const had = S.st?.files.some(f => f.conflict), has = st.files.some(f => f.conflict)
+    if (has && !had) S.tab = 'conflicts'
+    if (S.tab === 'conflicts' && !has && !st.doing) S.tab = 'changes'
+    S.st = st; S.err = null
+  } catch (e) { S.st = null; S.err = e; return render() }
+  // Every few minutes, quietly check the server so "new commits to download" shows up without anyone asking.
+  if (Object.keys(S.st.remotes).length && Date.now() - S.fetched > 5 * 60e3) {
+    S.fetched = Date.now()
+    const repo = S.repo
+    api('auto_fetch', { repo }, true).then(() => { if (S.repo === repo && !acting) refresh() }).catch(() => {})
+  }
+  await loadTab().catch(showError)
+  render()
+}
+
+async function loadTab() {
+  const r = { repo: S.repo }, s = S.st
+  if (S.tab === 'changes') {
+    const f = s.files.find(f => f.path === S.sel && !f.conflict)
+    S.sel = f ? f.path : null
+    S.diff = f ? await api('diff', { ...r, path: f.path, orig: f.orig, untracked: f.x === '?' }) : ''
+  }
+  if (S.tab === 'history') S.log = await api('log', { ...r, ref: S.logRef, search: S.search, limit: S.logLimit })
+  if (S.tab === 'bin') S.bin = await api('bin', r)
+  if (S.tab === 'undo') S.reflog = await api('reflog', r)
+  if (S.tab === 'stashes' && S.stashView) {
+    if (s.stashes.some(x => x.ref === S.stashView)) S.stashDiff = await api('stash_diff', { ...r, ref: S.stashView })
+    else S.stashView = null
+  }
+  if (S.tab === 'conflicts') {
+    const files = s.files.filter(f => f.conflict), f = files.find(f => f.path === S.cfPath) || files[0]
+    S.cfPath = f?.path
+    if (f && S.cf?.path !== f.path) S.cf = await loadConflict(f)
+  }
+}
+
+// ---------- feedback ----------
+function toast(text, tone = 'ok', detail = null, undo = null) {
+  const el = document.createElement('div')
+  el.className = 'toast ' + tone
+  el.innerHTML = `<div>${esc(text)}${detail ? `<details><summary>What Git said</summary><pre>${esc(detail)}</pre></details>` : ''}</div>
+    ${undo ? `<button class="undo">${ic('undo')}Undo</button>` : ''}<button class="x" aria-label="Close">×</button>`
+  el.querySelector('.x').onclick = () => el.remove()
+  if (undo) el.querySelector('.undo').onclick = () => { el.remove(); guarded(undo) }
+  $('#toasts').append(el)
+  if (tone !== 'err') setTimeout(() => el.remove(), undo ? 10000 : 5000)
+}
+function showError(e) {
+  const msg = e?.error ?? String(e)
+  toast(e?.hint || msg.split('\n')[0], 'err', e?.hint || msg.includes('\n') ? msg : null)
+}
+function logCmds(cmds, ok) {
+  const list = $('#cmds'), time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  for (const c of cmds) list.insertAdjacentHTML('afterbegin', `<li class="${ok ? '' : 'bad'}" title="${time}">${esc(c)}</li>`)
+  while (list.children.length > 200) list.lastChild.remove()
+}
+
+// A small modal. Returns the chosen button's value (or the typed text for prompts), null when cancelled.
+function ask({ title, body = '', input, value = '', buttons = [['OK', true]] }) {
+  return new Promise(resolve => {
+    dlg.innerHTML = `<form><h2>${esc(title)}</h2>${body ? `<div class="body">${body}</div>` : ''}
+      ${input !== undefined ? `<input id="dlgIn" value="${esc(value)}" placeholder="${esc(input)}" autofocus>` : ''}
+      <div class="btns"><button type="button" data-close>Cancel</button>${buttons.map(([label, , cls], i) =>
+        `<button value="${i}" class="${cls ?? (i === buttons.length - 1 ? 'primary' : '')}">${esc(label)}</button>`).join('')}</div></form>`
+    // Answer straight from the click or key press; the dialog's own close event isn't reliable in every browser.
+    let answered = false
+    const answer = v => { if (answered) return; answered = true; if (dlg.open) dlg.close(); resolve(v) }
+    dlg.querySelector('form').onsubmit = e => {
+      e.preventDefault()
+      answer(input !== undefined ? dlg.querySelector('#dlgIn').value.trim() : buttons[+(e.submitter?.value ?? 0)][1])
+    }
+    dlg.querySelector('[data-close]').onclick = () => answer(null)
+    dlg.oncancel = e => { e.preventDefault(); answer(null) }  // Escape key
+    dlg.onclose = () => answer(null)
+    dlg.showModal()
+  })
+}
+const confirmIt = (title, body, label, cls) => ask({ title, body, buttons: [[label, true, cls]] })
+
+// ---------- rendering ----------
+function render() {
+  renderSide()
+  document.title = S.st ? `${S.st.name} - KrazyGit` : 'KrazyGit'
+  const a = document.activeElement, keep = a?.id && main.contains(a) ? { id: a.id, s: a.selectionStart, e: a.selectionEnd } : null
+  const scrolls = {}
+  main.querySelectorAll('[id]').forEach(el => { if (el.scrollTop) scrolls[el.id] = el.scrollTop })
+  main.innerHTML = view()
+  main.querySelectorAll('[data-mixed]').forEach(c => { c.indeterminate = true })
+  for (const [id, t] of Object.entries(scrolls)) { const el = document.getElementById(id); if (el) el.scrollTop = t }
+  if (keep) { const el = document.getElementById(keep.id); if (el) { el.focus(); try { el.setSelectionRange(keep.s, keep.e) } catch {} } }
+}
+
+function renderSide() {
+  renderRepoList()
+  $('#nav').innerHTML = S.st && !S.closed ? navHtml(S.st) : ''
+}
+function renderRepoList() {
+  $('#repoSearch').hidden = S.repos.length <= 6  // only worth a search box once the list gets long
+  const q = S.filter.toLowerCase(), list = S.repos.filter(r => r.name.toLowerCase().includes(q))
+  $('#repos').innerHTML = list.length ? list.map(r => {
+    const on = r.path === S.repo
+    return `<button class="${on ? 'on' : ''}" data-act="openRepo" data-path="${esc(r.path)}" title="${esc(r.path)}" ${on ? 'aria-current="true"' : ''}>
+      <span class="tile sm" style="background:${color(r.name)}">${esc(r.name[0].toUpperCase())}</span><span class="who"><b>${esc(r.name)}</b>${on ? `<span>${esc(r.short)}</span>` : ''}</span>
+      ${r.missing ? '<span class="faint">missing</span>' : ''}</button>`
+  }).join('') : `<p class="hint" style="padding:6px 10px">${S.repos.length ? 'No match' : 'No projects yet. Press + to add one.'}</p>`
+}
+
+const TABS = {
+  conflicts: { label: 'Conflicts', icon: 'alert', show: s => s.doing || s.files.some(f => f.conflict), count: s => s.files.filter(f => f.conflict).length, view: conflictsView },
+  changes: { label: 'Changes', icon: 'edit', count: s => s.files.filter(f => !f.conflict).length, view: changesView, nudge: true },
+  branches: { label: 'Branches', icon: 'branch', count: s => s.branches.length, view: branchesView, nudge: true },
+  history: { label: 'History', icon: 'clock', view: historyView, nudge: true },
+  bin: { label: 'Recycle bin', icon: 'trash', view: binView },
+  undo: { label: 'Undo history', icon: 'undo', view: undoView },
+  stashes: { label: 'Stashes', icon: 'box', show: s => S.adv || s.stashes.length, count: s => s.stashes.length, view: stashesView },
+  tags: { label: 'Tags', icon: 'tag', show: s => S.adv || s.tags.length, count: s => s.tags.length, view: tagsView },
+  cli: { label: 'Command line', icon: 'term', show: () => S.adv, view: cliView },
+  settings: { label: 'Settings', icon: 'sliders', view: settingsView },
+}
+const NAV = [['', ['conflicts', 'branches', 'changes', 'history']], ['Safety net', ['bin', 'undo', 'stashes']], ['More', ['tags', 'cli', 'settings']]]
+function navHtml(s) {
+  return NAV.map(([group, keys]) => {
+    const items = keys.filter(k => !TABS[k].show || TABS[k].show(s)).map(k => {
+      const t = TABS[k], c = t.count?.(s)
+      return `<button class="${k === S.tab ? 'on' : ''} ${k === 'conflicts' ? 'warn' : ''}" data-act="tab" data-tab="${k}" ${k === S.tab ? 'aria-current="page"' : ''}>
+        ${ic(t.icon)}${t.label}${c ? `<span class="count">${c}</span>` : ''}</button>`
+    }).join('')
+    return items && (group ? `<div class="group">${group}</div>` : '') + items
+  }).join('')
+}
+
+function view() {
+  if (S.closed) return `<div id="content"><div class="empty" style="padding-top:14vh">${ic('power', 36)}
+    <h2 style="color:var(--ink)">${S.closed === 'quit' ? 'KrazyGit has quit' : 'KrazyGit is closed'}</h2>
+    <p>You can close this window. Open KrazyGit again whenever you need it.</p></div></div>`
+  if (!S.repo) return `<div id="content"><div style="max-width:760px;margin:8vh auto 0">
+    <div class="next" style="padding:22px"><div class="tilebig">${ic('folder', 22)}</div><div class="t"><b>Add your first project</b><span>Pick a code folder. KrazyGit finds the Git projects inside, or starts tracking it for you.</span></div>
+      <div class="acts">${btn('Add a project folder', 'addRepo', {}, 'primary big', false, 'plus')}</div></div>
+    <p style="margin:10px 4px 0" class="hint">Prefer typing? ${btn('Type a folder path', 'addPath', {}, 'link')}</p>
+    <div class="vhead" style="margin-top:40px"><h2>Git in one minute</h2></div><div class="help">${HELP}</div></div></div>`
+  if (S.err) return `<div id="content"><div class="empty" style="padding-top:12vh">${ic('alert', 36)}<h2 style="color:var(--ink)">${esc(S.repo.split('/').pop())}</h2>
+    <p>${esc(S.err.hint || S.err.error)}</p><div class="btns">${btn('Try again', 'refresh', {}, 'primary', false, 'refresh')}${btn('Remove from list', 'forgetRepo', {}, 'danger')}</div></div></div>`
+  if (!S.st) return ''
+  const s = S.st
+  if (TABS[S.tab].show && !TABS[S.tab].show(s)) S.tab = 'changes'
+  return toolbar(s) + `<div id="content">${TABS[S.tab].nudge ? nextStep(s) : ''}${TABS[S.tab].view(s)}</div>`
+}
+
+const pushed = s => !!s.upstream && !s.ahead  // the last commit is already on the server
+const hasRemote = s => Object.keys(s.remotes).length > 0
+const ownerOf = url => (String(url).match(/[:/]([^/:]+)\/[^/]+?(?:\.git)?\/?$/) || [])[1] || ''
+// What to call a server: its host (GitHub, Bitbucket), or its owner (like acme-team) when a project has several.
+const serverName = (s, remote = s.main_remote) => Object.keys(s.remotes).length > 1 ? ownerOf(s.remotes[remote]) || remote : hostName(s.remotes[remote] || '')
+const remoteHost = s => hasRemote(s) ? serverName(s) : 'GitHub'
+const upRemote = s => s.upstream ? s.upstream.split('/')[0] : null
+const branchServer = s => upRemote(s) ? serverName(s, upRemote(s)) : remoteHost(s)  // where this branch syncs
+const DOING = { merge: 'Merge', rebase: 'Rebase', 'cherry-pick': 'Copying a commit', revert: 'Undoing a commit' }
+
+function toolbar(s) {
+  const status = s.doing ? `<span class="badge warn">${ic('alert', 12)}${DOING[s.doing]} in progress</span>` : s.detached ? `<span class="badge warn">${ic('alert', 12)}Viewing an old commit</span>`
+    : dlOnly(s) ? `<span class="badge" title="Sync only downloads ${esc(s.branch)}; it never uploads">${ic('down', 12)}Download only</span>` : ''
+  return `<header class="toolbar">${branchPicker(s)}${status}<span class="spacer"></span>${syncButton(s)}
+    ${iconBtn('folder', 'Open the folder in Finder', 'reveal')}${iconBtn('refresh', 'Refresh', 'refresh')}</header>`
+}
+function branchPicker(s) {
+  const label = s.detached ? 'Old commit' : s.branch
+  if (s.doing || !s.has_commits) return `<span class="btnlike" style="cursor:default">${ic('branch')}<b>${esc(label)}</b></span>`
+  return `<details class="pop picker"><summary class="btnlike" title="Switch branch">${ic('branch')}<span>${esc(label)}</span>${ic('chev', 14)}</summary>
+    <div class="popbox"><div class="search">${ic('search', 14)}<input id="bpq" type="search" placeholder="Switch to a branch" autocomplete="off" aria-label="Find a branch"></div>
+    <div class="poplist" id="bplist">${pickerList(s, '')}</div><hr>
+    ${btn('New branch', 'newBranch', {}, '', false, 'plus')}${btn('Manage branches', 'tab', { tab: 'branches' }, '', false, 'sliders')}</div></details>`
+}
+function pickerList(s, q) {
+  const list = [...s.branches].sort((a, b) => (b.name === s.branch) - (a.name === s.branch)).filter(b => b.name.toLowerCase().includes(q.toLowerCase())).slice(0, 40)
+  return list.length ? list.map(b => {
+    const cur = b.name === s.branch && !s.detached
+    return `<button data-act="${cur ? 'noop' : 'switch'}" data-name="${esc(b.name)}">${ic(cur ? 'check' : 'branch')}<span class="ell">${esc(b.name)}</span><span class="faint">${esc(b.when)}</span></button>`
+  }).join('') : '<p class="hint" style="padding:8px 10px">No branch matches.</p>'
+}
+const dlOnly = s => s.download_only.includes(s.branch) && !s.detached
+const followServer = s => s.follow ? serverName(s, s.follow.ref.split('/')[0]) : branchServer(s)
+function syncButton(s) {
+  const host = remoteHost(s)
+  if (!hasRemote(s)) return btn('Back up online', 'tab', { tab: 'settings' }, '', false, 'cloud', 'Connect this project to GitHub')
+  if (!s.has_commits || s.detached || s.doing) return btn('Sync', 'noop', {}, '', true, 'sync', s.doing ? 'Finish the merge first' : s.detached ? 'Switch to a branch first' : 'Make a commit first')
+  if (dlOnly(s)) return btn(`Get updates${s.follow?.behind ? ' ↓' + s.follow.behind : ''}`, 'sync', {}, s.follow?.behind ? 'primary' : '', false, 'down',
+    `${s.branch} only downloads from ${followServer(s)}. It never uploads.`)
+  if (!s.upstream) return btn(`Publish to ${host}`, 'sync', {}, 'primary', false, 'up', `Upload this branch to ${host} for the first time`)
+  const counts = [s.behind && `↓${s.behind}`, s.ahead && `↑${s.ahead}`].filter(Boolean).join(' ')
+  return btn(`Sync${counts ? ' ' + counts : ''}`, 'sync', {}, counts ? 'primary' : '', false, 'sync', `Download new commits from ${branchServer(s)}, then upload yours there`)
+}
+
+// Everything worth doing next, most important first. The first one becomes the big "Next step" card.
+function suggestions(s) {
+  const out = [], add = (tone, icon, title, sub, ...btns) => out.push({ tone, icon, title, sub, btns })
+  const conf = s.files.filter(f => f.conflict).length, n = s.files.length - conf, host = esc(remoteHost(s)), onChanges = S.tab === 'changes'
+  if (conf) add('warn', 'alert', `${plural(conf, 'file')} need${conf === 1 ? 's' : ''} your decision`, 'Both sides changed the same lines. Pick what to keep.', ['Fix conflicts', 'tab', { tab: 'conflicts' }])
+  else if (s.doing) add('warn', 'checkc', `Finish the ${s.doing}`, 'All conflicts are fixed.', [s.doing === 'merge' ? 'Finish merge' : 'Continue', 'finish', { kind: s.doing, action: 'continue' }])
+  if (!s.who.name || !s.who.email) add('warn', 'user', 'Tell Git who you are', 'Your name goes on every commit you make.', ['Add my name', 'setWho'])
+  if (s.detached && !s.doing) add('warn', 'alert', 'You’re on an old commit, not a branch', 'New commits here are easy to lose.',
+    ...(s.prev_branch ? [[`Back to ${s.prev_branch}`, 'switch', { name: s.prev_branch }]] : []), ['Create a branch here', 'newBranch'])
+  if (!s.has_commits && !onChanges) add('info', 'edit', n ? 'Make your first commit' : 'Add some files', n ? 'Save a first snapshot of this project.' : 'Put files in this folder, then commit them.',
+    ...(n ? [['Review changes', 'tab', { tab: 'changes' }]] : []))
+  else if (n && !s.doing && !onChanges) add('info', 'edit', n === 1 ? 'Commit your change' : `Commit your ${n} changes`, 'Save a snapshot you can always go back to.', ['Review and commit', 'tab', { tab: 'changes' }])
+  if (dlOnly(s) && !s.doing) {  // e.g. master: it follows the team server and never uploads
+    const f = s.follow
+    if (f?.ahead) add('warn', 'alert', `${esc(s.branch)} has ${plural(f.ahead, 'commit')} that won’t be uploaded`, `${esc(s.branch)} only downloads. Move them to a branch you can upload.`,
+      ['Move them to a new branch', 'moveCommits'])
+    else if (f?.behind) add('info', 'down', `Get ${plural(f.behind, 'new commit')} from ${esc(followServer(s))}`, `Keeps ${esc(s.branch)} the same as the team’s.`, ['Get updates', 'sync'])
+  }
+  const linked = upRemote(s), oddOneOut = !dlOnly(s) && linked && s.main_remote && linked !== s.main_remote && !s.doing && !s.detached && !store(`keep:${s.path}:${s.branch}`)
+  if (oddOneOut) {  // linked to a different server than the rest: its updates (and uploads) are going to the wrong place
+    const there = s.remote_branches.some(b => b.name === `${s.main_remote}/${s.branch}`)
+    add('warn', 'cloud', `${esc(s.branch)} syncs with ${esc(serverName(s, linked))}`, there
+      ? `Your other branches use ${esc(serverName(s))}, which has its own ${esc(s.branch)}. Sync is getting updates from the wrong place.`
+      : `Your other branches go to ${esc(serverName(s))}.`,
+      [`${there ? 'Sync' : 'Upload'} with ${serverName(s)} instead`, 'moveRemote', { remote: s.main_remote, there: there ? '1' : '' }], [`Keep ${serverName(s, linked)}`, 'keepRemote'])
+  }
+  if (!oddOneOut && !dlOnly(s) && s.behind && !s.doing) add('info', 'down', `Get ${plural(s.behind, 'new commit')} from ${esc(branchServer(s))}`, 'Someone uploaded changes you don’t have yet.', ['Sync now', 'sync'])
+  else if (!oddOneOut && !dlOnly(s) && s.ahead && !s.doing) add('info', 'up', `Back up ${plural(s.ahead, 'commit')} to ${esc(branchServer(s))}`, 'Right now they’re only on this computer.', ['Sync now', 'sync'])
+  if (s.has_commits && !s.upstream && !s.detached && !s.doing && hasRemote(s) && !dlOnly(s)) add('info', 'up', `Publish ${esc(s.branch)} to ${host}`, 'It’s only on this computer so far.', ['Publish', 'sync'])
+  const left = !s.detached && s.stashes.find(x => /(Krazy|Easy)Git: left on (.+)$/.exec(x.msg)?.[2] === s.branch)
+  if (left) add('info', 'box', 'Bring back your unfinished changes', `You left them on ${esc(s.branch)} when you switched away.`, ['Bring them back', 'stashApply', { ref: left.ref, pop: '1' }])
+  const tidy = s.merged.filter(b => b !== s.branch && !MAIN.includes(b))
+  if (tidy.length) add('tip', 'trash', `Tidy up ${plural(tidy.length, 'merged branch', 'merged branches')}`, `${esc(listJoin(tidy))} ${tidy.length === 1 ? 'is' : 'are'} already in ${esc(s.branch)}.`, ['Tidy up', 'deleteMerged'])
+  if (MAIN.includes(s.branch) && n && s.has_commits && !s.doing) add(dlOnly(s) ? 'warn' : 'tip', 'branch', 'Try working on a branch', dlOnly(s) ? `${esc(s.branch)} only downloads, so commits here can’t be uploaded.` : `You’re changing ${esc(s.branch)} directly. A branch keeps experiments separate.`, ['Move changes to a new branch', 'newBranch'])
+  for (const f of s.files) {
+    const m = f.x === '?' && f.path.match(JUNK)
+    if (m) { add('tip', 'eye', `Leave <code>${esc(f.path)}</code> out of Git`, 'Generated files and secrets usually don’t belong in Git.', ['Ignore it', 'ignore', { pattern: m[2] + (m[3] === '/' ? '/' : '') }]); break }
+  }
+  if (!hasRemote(s) && s.has_commits) add('tip', 'cloud', 'Back up this project online', 'Right now it only lives on this computer.', ['Back up online', 'tab', { tab: 'settings' }])
+  return out
+}
+const tipKey = (s, x) => `${s.path}|${s.branch}|${x.icon}|${x.btns[0]?.[1] || ''}`
+const canHide = x => x.tone !== 'warn'
+function nextStep(s) {
+  const every = suggestions(s), all = every.filter(x => !(canHide(x) && HIDDEN.has(tipKey(s, x)))), changes = s.files.length
+  const hide = x => canHide(x) ? iconBtn('x', 'Hide until KrazyGit is reopened', 'hideTip', { key: tipKey(s, x) }) : ''
+  if (!all.length) return changes || every.length ? '' : `<section class="next done"><div class="tilebig">${ic('check', 22)}</div><div class="t"><b>All caught up</b>
+    <span>${s.upstream ? `Everything is committed and backed up on ${esc(remoteHost(s))}.` : 'Everything is committed.'}</span></div></section>`
+  const [top, ...rest] = all
+  return `<section class="next ${top.tone}"><div class="tilebig">${ic(top.icon, 22)}</div><div class="t"><b>${top.title}</b>${top.sub ? `<span>${top.sub}</span>` : ''}</div>
+    <div class="acts">${top.btns.map(([l, a, d], i) => btn(l, a, d, i ? 'big' : 'primary big')).join('')}${hide(top)}</div></section>
+    ${rest.length ? `<div class="tips">${btn(S.tipsOpen ? 'Hide other suggestions' : plural(rest.length, 'more suggestion'), 'tips', {}, 'link')}
+      ${S.tipsOpen ? `<ul>${rest.map(x => `<li class="${x.tone}">${ic(x.icon)}<span><b>${x.title}</b> <span class="hint">${x.sub}</span></span>
+        ${x.btns.map(([l, a, d]) => btn(l, a, d)).join('')}${hide(x)}</li>`).join('')}</ul>` : ''}</div>` : ''}`
+}
+
+// Unified diff text -> rows with line numbers. Header lines only count before a file's first hunk,
+// so a removed line like "-- comment" is never mistaken for a "---" header.
+function parseDiff(text) {
+  const rows = []
+  let o = 0, n = 0, inHunk = false, m
+  for (const l of text.replace(/\n$/, '').split('\n')) {
+    if (l.startsWith('diff --git ')) { inHunk = false; rows.push({ t: 'file', text: l.replace(/^diff --git a\/(.*) b\/.*$/, '$1') }) }
+    else if ((m = l.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@ ?(.*)/))) { inHunk = true; o = +m[1]; n = +m[2]; rows.push({ t: 'hunk', text: m[3] }) }
+    else if (!inHunk) { if (/^(new file|deleted file|similarity|rename |copy |old mode|new mode|Binary files)/.test(l)) rows.push({ t: 'note', text: l }) }
+    else if (l[0] === '-') rows.push({ t: 'del', o: o++, text: l.slice(1) })
+    else if (l[0] === '+') rows.push({ t: 'add', n: n++, text: l.slice(1) })
+    else if (l[0] !== '\\') rows.push({ t: 'ctx', o: o++, n: n++, text: l.slice(1) })
+  }
+  return rows
+}
+const wide = (r, cols) => `<tr class="${r.t}"><td colspan="${cols}">${esc(r.text) || '&nbsp;'}</td></tr>`
+function diffInline(rows) {
+  return `<table class="dt"><colgroup><col class="cn"><col class="cn"><col></colgroup>${rows.map(r => ['file', 'hunk', 'note'].includes(r.t) ? wide(r, 3)
+    : `<tr class="${r.t}"><td class="n">${r.o ?? ''}</td><td class="n">${r.n ?? ''}</td><td class="c">${esc(r.text)}</td></tr>`).join('')}</table>`
+}
+function diffSplit(rows) {
+  const out = ['<tr class="sidehead"><td colspan="2">Before</td><td colspan="2">After</td></tr>']
+  let dels = [], adds = []
+  const cell = (r, no) => r ? `<td class="n ${r.t}">${no}</td><td class="c ${r.t}">${esc(r.text)}</td>` : '<td class="n e"></td><td class="c e"></td>'
+  const flush = () => {  // pair each run of removed lines with the added lines that replaced them
+    for (let i = 0; i < Math.max(dels.length, adds.length); i++) out.push(`<tr>${cell(dels[i], dels[i]?.o)}${cell(adds[i], adds[i]?.n)}</tr>`)
+    dels = []; adds = []
+  }
+  for (const r of rows) {
+    if (r.t === 'del') { dels.push(r); continue }
+    if (r.t === 'add') { adds.push(r); continue }
+    flush()
+    out.push(r.t === 'ctx' ? `<tr><td class="n">${r.o}</td><td class="c">${esc(r.text)}</td><td class="n">${r.n}</td><td class="c">${esc(r.text)}</td></tr>` : wide(r, 4))
+  }
+  flush()
+  return `<table class="dt split4"><colgroup><col class="cn"><col><col class="cn"><col></colgroup>${out.join('')}</table>`
+}
+function diffHtml(text, oneFile = false) {  // oneFile: the file name is already shown above
+  if (!text) return '<p class="hint">No differences to show.</p>'
+  if (!/^(diff --git |@@ )/m.test(text)) return `<pre class="out">${esc(text)}</pre>`  // not a diff, e.g. a new folder's file list
+  const rows = parseDiff(text).filter(r => !(oneFile && r.t === 'file')), plus = rows.filter(r => r.t === 'add').length, minus = rows.filter(r => r.t === 'del').length
+  const mode = S.diffMode === 'inline' ? 'inline' : 'split'
+  return `<div class="dtbar"><span class="plus">+${plus}</span><span class="minus">−${minus}</span><span class="spacer"></span>
+    <div class="seg sm" role="group" aria-label="How to show changes">${[['split', 'Side by side'], ['inline', 'Inline']].map(([k, l]) =>
+      `<button class="${mode === k ? 'on' : ''}" data-act="diffMode" data-mode="${k}" aria-pressed="${mode === k}">${l}</button>`).join('')}</div></div>
+    <div class="diff">${mode === 'split' ? diffSplit(rows) : diffInline(rows)}</div>`
+}
+function fileName(path) {
+  const trimmed = path.replace(/\/$/, ''), cut = trimmed.lastIndexOf('/') + 1
+  return `<span class="fname" title="${esc(path)}"><bdi><span class="dir">${esc(path.slice(0, cut))}</span>${esc(path.slice(cut))}</bdi></span>`
+}
+
+// ---------- Changes ----------
+const isStaged = f => f.x !== '.' && f.x !== '?'
+function kind(f) {
+  if (f.x === '?') return ['New file', 'a', '+']
+  return { A: ['New file', 'a', '+'], D: ['Deleted', 'd', '−'], R: ['Renamed', 'r', '→'], C: ['Copied', 'r', '→'] }[f.x !== '.' ? f.x : f.y] || ['Changed', 'm', '•']
+}
+const stBadge = f => { const [label, k, sym] = kind(f); return `<span class="st ${k}" title="${label}">${sym}</span>` }
+function suggestMsg(files) {
+  const pick = files.some(isStaged) ? files.filter(isStaged) : files
+  const names = pick.map(f => f.path.replace(/\/$/, '').split('/').pop()), kinds = pick.map(f => kind(f)[1])
+  const verb = kinds.every(k => k === 'a') ? 'Add' : kinds.every(k => k === 'd') ? 'Remove' : 'Update'
+  return `${verb} ${names.length > 3 ? `${names.slice(0, 2).join(', ')} and ${names.length - 2} other files` : listJoin(names)}`
+}
+function changesView(s) {
+  const files = s.files.filter(f => !f.conflict)
+  if (pushed(s)) S.amend = false  // rewriting a commit that's already uploaded causes trouble
+  const head = `<div class="vhead ${TABS.changes.nudge && nextStep(s) ? '' : 'first'}"><h2>Changes</h2>${files.length ? btn('Stash', 'stashAll', {}, 'ghost', false, 'box', 'Put these changes aside for later')
+    + (s.has_commits ? btn('Discard all', 'discardAll', {}, 'ghost danger', false, 'trash') : '') : ''}</div>`
+  if (!files.length) return head + `<div class="list"><div class="empty">${ic('checkc', 30)}<b>No changes</b><p>Edit files in your code editor and they’ll show up here.</p>
+    ${s.has_commits ? `<div class="btns">${pushed(s) ? '' : btn('Edit last message', 'editMessage', {}, 'ghost', false, 'edit')}${btn('Undo last commit', 'undoCommit', {}, 'ghost', false, 'undo')}</div>` : ''}</div></div>`
+  const staged = files.filter(isStaged), all = staged.length === files.length, sel = files.find(f => f.path === S.sel)
+  const label = S.amend ? 'Amend last commit' : staged.length || files.length === 1 ? `Commit ${plural(staged.length || 1, 'file')}` : `Commit all ${files.length} files`
+  return head + `<div class="split"><div class="pane-l">
+    <div class="lhead"><input type="checkbox" data-act="stageAll" ${all ? 'checked' : ''} ${staged.length && !all ? 'data-mixed' : ''} aria-label="Select all" title="Tick files to choose what goes in. None ticked means all.">
+      <span>${plural(files.length, 'changed file')}</span></div>
+    <ul class="files" id="files">${files.map(f => {
+      const partial = isStaged(f) && f.y !== '.'
+      return `<li class="${S.sel === f.path ? 'sel' : ''}" data-act="select" data-path="${esc(f.path)}">
+        <input type="checkbox" data-act="stageToggle" data-path="${esc(f.path)}" data-orig="${esc(f.orig || '')}" ${isStaged(f) && !partial ? 'checked' : ''} ${partial ? 'data-mixed' : ''} aria-label="Include ${esc(f.path)}">
+        ${stBadge(f)}${fileName(f.path)}</li>`
+    }).join('')}</ul>
+    <div class="commit">
+      <textarea id="msg" rows="2" placeholder="${esc(suggestMsg(files))}" aria-label="Commit message" title="Leave it empty to use the suggestion">\n${esc(val('msg'))}</textarea>
+      <button class="primary big wide" data-act="commit">${ic('check')}${esc(label)}</button>
+      <div class="opts">${s.has_commits && !pushed(s) ? `<label title="Put these changes into your last commit instead of a new one"><input type="checkbox" data-act="amendToggle" ${S.amend ? 'checked' : ''}>Add to last commit</label>` : '<span></span>'}
+        ${s.has_commits ? btn('Undo last commit', 'undoCommit', {}, 'link') : ''}</div>
+    </div></div>
+    <div class="pane-r" id="diffpane">${sel ? `<div class="diff-head">${stBadge(sel)}<b>${esc(sel.path)}</b><span class="spacer"></span>
+      ${sel.x === '?' ? btn('Ignore', 'ignore', { pattern: sel.path }, 'ghost', false, 'eye', 'Never track this ' + (sel.path.endsWith('/') ? 'folder' : 'file')) : ''}
+      ${btn('Discard', 'discard', { path: sel.path, orig: sel.orig || '', new: sel.x === '?' || sel.x === 'A' ? '1' : '' }, 'ghost danger', false, 'trash')}</div>${diffHtml(S.diff, true)}`
+      : `<div class="empty">${ic('file', 30)}<p>Pick a file to see exactly what changed.</p></div>`}</div></div>`
+}
+
+// ---------- Branches ----------
+function track(t) {
+  return t.replace(/ahead (\d+)/, '↑$1 to upload').replace(/behind (\d+)/, '↓$1 to download')
+}
+const shortName = n => n.slice(n.indexOf('/') + 1)
+// What the Branches view shows: shared by the view and the select-all / quick-select actions.
+function branchModel(s) {
+  const remote = S.bview === 'remote' && hasRemote(s), paused = !!s.doing, q = S.bq.trim().toLowerCase(), oldTs = Date.now() / 1000 - OLD_DAYS * 86400
+  const all = remote ? s.remote_branches : s.branches
+  const selectable = b => !paused && (remote || b.name !== s.branch || s.detached)
+  const merged = b => remote ? s.remote_merged.includes(b.name) && !MAIN.includes(shortName(b.name)) : s.merged.includes(b.name) && !MAIN.includes(b.name) && b.name !== s.branch
+  const isOld = b => +b.ts < oldTs
+  let list = all.filter(b => !q || b.name.toLowerCase().includes(q) || b.subject.toLowerCase().includes(q))
+  if (remote && S.bremote) list = list.filter(b => b.name.startsWith(S.bremote + '/'))
+  if (S.bsort === 'name') list = [...list].sort((a, b) => a.name.localeCompare(b.name))
+  const top = remote ? s.upstream : s.branch
+  list = [...list].sort((a, b) => (b.name === top) - (a.name === top))
+  for (const n of [...S.bsel]) if (!all.some(b => b.name === n && selectable(b))) S.bsel.delete(n)
+  return { remote, paused, all, list, pick: list.filter(selectable), selectable, merged, isOld }
+}
+function branchesView(s) {
+  const m = branchModel(s), host = remoteHost(s), locals = new Set(s.branches.map(b => b.name)), multi = Object.keys(s.remotes).length > 1
+  const remoteShort = new Set(s.remote_branches.map(b => shortName(b.name))), onServer = b => b.upstream || remoteShort.has(b.name)
+  const nMerged = m.pick.filter(m.merged).length, nOld = m.pick.filter(m.isOld).length, selVisible = m.pick.filter(b => S.bsel.has(b.name)).length
+  const head = `<div class="vhead"><h2>Branches</h2>${m.remote ? btn('Check for new branches', 'fetchNow', {}, 'ghost', false, 'refresh')
+    : m.paused ? '' : btn('New branch', 'newBranch', {}, 'primary', false, 'plus')}</div>`
+  const seg = `<div class="seg" role="tablist" aria-label="Where the branches are">
+    <button class="${m.remote ? '' : 'on'}" data-act="bView" data-view="local" role="tab" aria-selected="${!m.remote}">${ic('laptop')}On this computer <span class="n">${s.branches.length}</span></button>
+    <button class="${m.remote ? 'on' : ''}" data-act="bView" data-view="remote" role="tab" aria-selected="${m.remote}" ${hasRemote(s) ? '' : 'disabled title="Not connected to a server yet. Connect in Settings."'}>
+      ${ic('cloud')}${multi ? 'Online' : `On ${esc(host)}`} <span class="n">${s.remote_branches.length}</span></button></div>`
+  const filters = `<div class="filters">${seg}<div class="search">${ic('search', 14)}<input id="bq" type="search" placeholder="Search branches" value="${esc(S.bq)}" autocomplete="off" aria-label="Search branches"></div>
+    ${nMerged || nOld ? `<span class="hint">Select</span>${nMerged ? btn(`Merged · ${nMerged}`, 'bPick', { which: 'merged' }, 'chip', false, '', 'Select branches already merged into ' + s.branch) : ''}
+      ${nOld ? btn(`Older than 3 months · ${nOld}`, 'bPick', { which: 'old' }, 'chip', false, '', 'Select branches with no commits for 3 months') : ''}` : ''}
+    <span class="spacer"></span>${m.remote && multi ? `<select id="bremote" data-change="bRemote" aria-label="Which server"><option value="">All servers</option>${Object.keys(s.remotes).map(r =>
+      `<option value="${esc(r)}" ${S.bremote === r ? 'selected' : ''}>${esc(serverName(s, r))}</option>`).join('')}</select>` : ''}
+    <select id="bsort" data-change="bSort" aria-label="Sort branches"><option value="recent" ${S.bsort !== 'name' ? 'selected' : ''}>Most recent</option>
+      <option value="name" ${S.bsort === 'name' ? 'selected' : ''}>A to Z</option></select></div>`
+  const banner = m.paused ? `<div class="banner">${ic('alert')}<div>Finish or cancel the ${s.doing} first. Branch actions are paused until then.</div>${btn('Go to conflicts', 'tab', { tab: 'conflicts' })}</div>` : ''
+  if (!m.all.length) return head + filters + banner + `<div class="list"><div class="empty">${ic(m.remote ? 'cloud' : 'branch', 30)}
+    <p>${m.remote ? `Nothing on ${esc(host)} yet. Press Sync to upload your branch.` : 'Branches appear once you’ve made your first commit.'}</p></div></div>`
+
+  const localRow = b => {
+    const cur = b.name === s.branch && !s.detached
+    const tags = [cur && `<span class="badge here">${ic('check', 12)}Current</span>`, m.merged(b) && '<span class="badge ok">Merged</span>', m.isOld(b) && '<span class="badge">Old</span>',
+      b.track === 'gone' ? `<span class="badge warn">Deleted on ${esc(host)}</span>` : b.track && `<span class="badge">${esc(track(b.track))}</span>`,
+      !onServer(b) && hasRemote(s) && '<span class="badge">Only on this computer</span>',
+      s.download_only.includes(b.name) && `<span class="badge" title="Sync only downloads it">${ic('down', 11)}Download only</span>`].filter(Boolean).join('')
+    return `<div class="row ${S.bsel.has(b.name) ? 'sel' : ''}">
+      <input type="checkbox" data-act="bToggle" data-name="${esc(b.name)}" ${S.bsel.has(b.name) ? 'checked' : ''} ${m.selectable(b) ? '' : 'disabled'} aria-label="Select ${esc(b.name)}" ${cur ? 'title="You’re on this branch"' : ''}>
+      <div class="main"><div class="name">${esc(b.name)}${tags}</div><div class="meta">${esc(b.subject)} <span class="faint">${esc(b.when)}</span></div></div>
+      ${m.paused ? '' : `<div class="acts">${cur ? '' : btn('Switch', 'switch', { name: b.name }, '', false, 'arrow')}
+        ${cur || s.detached ? '' : btn('Merge', 'merge', { name: b.name }, 'ghost', false, 'merge', `Bring its commits into ${s.branch}`)}
+        ${menu([btn('Rename', 'rename', { name: b.name }, '', false, 'edit'), btn('New branch from here', 'newBranch', { start: b.name }, '', false, 'plus'),
+          btn('See its history', 'branchHistory', { name: b.name }, '', false, 'clock'),
+          !onServer(b) && hasRemote(s) ? btn(`Upload to ${host}`, 'publishOne', { name: b.name }, '', false, 'up') : '',
+          !cur && !s.detached && S.adv ? btn(`Rebase ${s.branch} onto this`, 'rebase', { name: b.name }, '', false, 'branch') : '',
+          hasRemote(s) ? (s.download_only.includes(b.name) ? btn('Allow uploads', 'toggleDl', { name: b.name }, '', false, 'up')
+            : btn('Download only (never upload)', 'toggleDl', { name: b.name, on: '1' }, '', false, 'down')) : '',
+          cur ? '' : '<hr>' + btn('Delete', 'deleteBranch', { name: b.name }, 'danger', false, 'trash')])}</div>`}</div>`
+  }
+  const remoteRow = b => {
+    const short = shortName(b.name), have = locals.has(short)
+    const tags = [b.name === s.upstream && `<span class="badge here">${ic('check', 12)}Current branch syncs here</span>`, multi && `<span class="badge">${ic('cloud', 11)}${esc(serverName(s, b.name.split('/')[0]))}</span>`,
+      have && b.name !== s.upstream && '<span class="badge here">Also on this computer</span>',
+      m.merged(b) && '<span class="badge ok">Merged</span>', m.isOld(b) && '<span class="badge">Old</span>'].filter(Boolean).join('')
+    return `<div class="row ${S.bsel.has(b.name) ? 'sel' : ''}">
+      <input type="checkbox" data-act="bToggle" data-name="${esc(b.name)}" ${S.bsel.has(b.name) ? 'checked' : ''} ${m.selectable(b) ? '' : 'disabled'} aria-label="Select ${esc(short)}">
+      <div class="main"><div class="name">${esc(short)}${tags}</div><div class="meta">${esc(b.subject)} <span class="faint">${esc(b.when)}</span></div></div>
+      ${m.paused ? '' : `<div class="acts">${have && short === s.branch ? '' : btn(have ? 'Switch' : 'Get a copy', 'switch', { name: b.name, remote: '1' }, '', false, have ? 'arrow' : 'down',
+        have ? '' : 'Make your own copy of this branch and switch to it')}
+        ${menu([btn('See its history', 'branchHistory', { name: b.name }, '', false, 'clock'), '<hr>' + btn(`Delete from ${host}`, 'deleteRemote', { name: b.name }, 'danger', false, 'trash')])}</div>`}</div>`
+  }
+  const lhead = `<div class="lhead"><input type="checkbox" data-act="bAll" ${selVisible && selVisible === m.pick.length ? 'checked' : ''} ${selVisible && selVisible < m.pick.length ? 'data-mixed' : ''}
+    ${m.pick.length ? '' : 'disabled'} aria-label="Select all shown"><span>${m.list.length === m.all.length ? plural(m.all.length, 'branch', 'branches') : `${m.list.length} of ${m.all.length} branches`}</span></div>`
+  const rows = m.list.map(m.remote ? remoteRow : localRow).join('') || `<div class="empty"><p>No branch matches “${esc(S.bq)}”.</p></div>`
+  const bulk = S.bsel.size ? `<div class="bulk" role="region" aria-label="Selected branches"><b>${S.bsel.size} selected</b>
+    ${m.remote ? btn('Get local copies', 'bulkTrack', {}, '', false, 'down') + btn(`Delete from ${host}`, 'bulkDeleteRemote', {}, 'danger-btn', false, 'trash')
+      : (hasRemote(s) ? btn(`Upload to ${host}`, 'bulkPublish', {}, '', false, 'up') : '') + btn('Delete', 'bulkDelete', {}, 'danger-btn', false, 'trash')}
+    ${iconBtn('x', 'Clear selection', 'bClear')}</div>` : ''
+  return head + filters + banner + `<div class="list">${lhead}${rows}</div>${bulk}`
+}
+
+// ---------- History ----------
+function refBadges(d) {
+  const remotes = new Set(S.st.remote_branches.map(b => b.name))
+  return d ? d.split(', ').filter(r => !r.endsWith('/HEAD')).map(r =>
+    r.startsWith('HEAD -> ') ? `<span class="badge here">${esc(r.slice(8))}</span>` : r === 'HEAD' ? '<span class="badge here">You’re here</span>'
+      : r.startsWith('tag: ') ? `<span class="badge">${ic('tag', 11)}${esc(r.slice(5))}</span>` : `<span class="badge">${remotes.has(r) ? ic('cloud', 11) : ''}${esc(r)}</span>`).join(' ') + ' ' : ''
+}
+const avatar = name => `<span class="avatar" style="background:${color(name)}" title="${esc(name)}">${esc(initials(name))}</span>`
+const STATUS = { A: ['New file', 'a', '+'], M: ['Changed', 'm', '•'], D: ['Deleted', 'd', '−'], R: ['Renamed', 'r', '→'], C: ['Copied', 'r', '→'], T: ['Changed', 'm', '•'] }
+function historyView(s) {
+  const head = `<div class="vhead"><h2>History</h2>`
+  if (!s.has_commits) return head + `</div><div class="list"><div class="empty">${ic('clock', 30)}<p>Your history starts with your first commit.</p></div></div>`
+  const opts = [['HEAD', s.detached ? 'This commit and earlier' : `This branch (${s.branch})`], ['--all', 'All branches'], ...s.branches.filter(b => b.name !== s.branch).map(b => [b.name, b.name])]
+  if (!opts.some(([v]) => v === S.logRef)) opts.push([S.logRef, S.logRef])
+  const c = S.commit
+  return head + `<select id="logRef" data-change="logRef" aria-label="Which branch">${opts.map(([v, l]) => `<option value="${esc(v)}" ${v === S.logRef ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>
+    <div class="search" style="width:260px">${ic('search', 14)}<input id="search" type="search" placeholder="Search messages, press Enter" value="${esc(S.search)}" data-enter="search" aria-label="Search commit messages"></div></div>
+  <div class="split"><ul class="commits pane-l" id="loglist">${S.log.length ? S.log.map(x => `<li class="${c?.sha === x.sha ? 'sel' : ''}" data-act="showCommit" data-sha="${x.sha}">
+      ${avatar(x.author)}<div class="main"><div class="subj">${refBadges(x.refs)}${esc(x.subject)}</div><div class="meta hint">${esc(x.author)} <span class="faint">${esc(x.when)}</span></div></div></li>`).join('')
+      : `<li><div class="empty" style="width:100%"><p>No commits match.</p></div></li>`}
+    ${S.log.length >= S.logLimit ? `<li>${btn('Show older commits', 'moreLog', {}, 'link')}</li>` : ''}</ul>
+  <div class="pane-r detail" id="commitpane">${c ? commitDetail(c, s) : `<div class="empty">${ic('clock', 30)}<p>Pick a commit to see what it changed.</p></div>`}</div></div>`
+}
+function commitDetail(c, s) {
+  const [subject, ...rest] = c.message.split('\n'), body = rest.join('\n').trim()
+  return `<h3>${esc(subject)}</h3>${body ? `<p class="body">${esc(body)}</p>` : ''}
+    <div class="by">${avatar(c.author)}<span>${esc(c.author)}</span><span class="faint">${esc(c.date)}</span><code class="faint">${c.sha.slice(0, 7)}</code></div>
+    <div class="btns">${btn('Undo this commit', 'revert', { sha: c.sha }, '', false, 'undo', 'Add a new commit that reverses this one')}
+      ${btn('New branch here', 'newBranch', { start: c.sha }, '', false, 'branch')}
+      ${menu([btn('Go back to this commit…', 'resetTo', { sha: c.sha, subject }, '', false, 'rewind'),
+        S.adv && !s.detached ? btn(`Copy to ${s.branch}`, 'cherryPick', { sha: c.sha }, '', false, 'copy') : '',
+        S.adv ? btn('Look around at this commit', 'checkoutCommit', { sha: c.sha }, '', false, 'eye') : '',
+        S.adv ? btn('Tag this commit', 'newTag', { sha: c.sha }, '', false, 'tag') : ''])}</div>
+    <h4>${plural(c.files.length, 'file')} changed</h4>
+    <div class="list">${c.files.map(f => { const [label, k, sym] = STATUS[f.status] || STATUS.M
+      return `<div class="row" style="padding:6px 12px"><span class="st ${k}" title="${label}">${sym}</span><div class="main">${fileName(f.path)}</div>
+        ${btn(f.status === 'D' ? 'Bring back' : 'Restore this version', 'restoreFile', { sha: c.sha, path: f.path, deleted: f.status === 'D' ? '1' : '' }, 'link')}</div>` }).join('')}</div>
+    <h4>Changes</h4>${diffHtml(c.patch)}`
+}
+
+// ---------- Stashes, tags ----------
+function stashLabel(m) {
+  let x
+  if ((x = m.match(/^On (\S+): (?:Krazy|Easy)Git: left on (.+)$/))) return `Changes you left on ${x[2]}`
+  if ((x = m.match(/^On (\S+): (?:Krazy|Easy)Git (backup .*)$/))) return `Safety ${x[2]}`
+  if ((x = m.match(/^On (\S+): (.*)$/))) return `${x[2]} (from ${x[1]})`
+  if ((x = m.match(/^WIP on (\S+):/))) return `Unnamed changes (from ${x[1]})`
+  return m
+}
+function stashesView(s) {
+  const n = s.files.filter(f => !f.conflict).length
+  return `<div class="vhead first"><h2>Stashes</h2>${btn(n ? `Stash ${plural(n, 'change')}` : 'Nothing to stash', 'stashAll', {}, 'primary', !n, 'box')}</div>
+  <p class="hint" style="margin:-4px 0 12px">A shelf for unfinished work. KrazyGit also keeps safety backups here.</p>
+  ${s.stashes.length ? `<div class="list rows-wrap">${s.stashes.map(x => `<div class="row">${ic('box')}<div class="main"><div class="name">${esc(stashLabel(x.msg))}</div><div class="meta">${esc(x.when)}</div></div>
+    <div class="acts">${btn('Bring back', 'stashApply', { ref: x.ref, pop: '1' }, 'primary', false, 'down')}${btn(S.stashView === x.ref ? 'Hide' : 'View', 'stashView', { ref: x.ref }, 'ghost', false, 'eye')}
+      ${menu([btn('Apply a copy (keep it here)', 'stashApply', { ref: x.ref }, '', false, 'copy'), '<hr>' + btn('Delete', 'stashDrop', { ref: x.ref }, 'danger', false, 'trash')])}</div>
+    ${S.stashView === x.ref ? diffHtml(S.stashDiff) : ''}</div>`).join('')}</div>` : `<div class="list"><div class="empty">${ic('box', 30)}<p>The shelf is empty.</p></div></div>`}`
+}
+function tagsView(s) {
+  return `<div class="vhead first"><h2>Tags</h2>${btn('Tag current commit', 'newTag', {}, 'primary', !s.has_commits, 'tag')}</div>
+  <p class="hint" style="margin:-4px 0 12px">Permanent bookmarks for important commits, like releases. Sync uploads them too.</p>
+  ${s.tags.length ? `<div class="list">${s.tags.map(t => `<div class="row">${ic('tag')}<div class="main"><div class="name">${esc(t.name)}</div><div class="meta">${esc(t.subject)} <span class="faint">${esc(t.when)}</span></div></div>
+    <div class="acts">${S.adv ? btn('Look around', 'checkoutCommit', { sha: 'refs/tags/' + t.name }, 'ghost', false, 'eye') : ''}${btn('Delete', 'deleteTag', { name: t.name }, 'ghost danger', false, 'trash')}</div></div>`).join('')}</div>`
+    : `<div class="list"><div class="empty">${ic('tag', 30)}<p>No tags yet.</p></div></div>`}`
+}
+
+// ---------- Recycle bin, undo ----------
+function ago(t) {
+  const sec = Date.now() / 1000 - t, rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' })
+  for (const [u, n] of [['year', 31536000], ['month', 2592000], ['day', 86400], ['hour', 3600], ['minute', 60]]) if (sec >= n) return rtf.format(-Math.floor(sec / n), u)
+  return 'just now'
+}
+function binView(s) {
+  const b = S.bin, KIND = { branch: ['Branch', 'branch'], remote: [`Branch on ${remoteHost(s)}`, 'cloud'], tag: ['Tag', 'tag'], stash: ['Stash', 'box'] }
+  return `<div class="vhead first"><h2>Recycle bin</h2>${b?.some(x => x.ref) ? btn('Empty bin', 'emptyBin', {}, 'ghost danger', false, 'trash') : ''}</div>
+  <p class="hint" style="margin:-4px 0 12px">Deleted branches, tags and stashes wait here until you empty the bin.</p>
+  ${!b ? '' : b.length ? `<div class="list">${b.map(x => { const [label, icon] = KIND[x.kind] || KIND.branch
+    return `<div class="row">${ic(icon)}<div class="main"><div class="name">${esc(x.kind === 'stash' ? stashLabel(x.subject) : x.name)}<span class="badge">${esc(label)}</span></div>
+      <div class="meta">${x.source === 'bin' ? `Deleted ${ago(x.deleted)}` : 'Deleted outside KrazyGit'}${x.kind === 'stash' ? '' : `. Last commit: ${esc(x.subject)}`}</div></div>
+      <div class="acts">${btn('Restore', 'restore', { kind: x.kind, name: x.name, sha: x.sha, ref: x.ref || '' }, 'primary', false, 'undo')}${x.ref ? menu([btn('Remove forever', 'forget', { ref: x.ref }, 'danger', false, 'trash')]) : ''}</div></div>` }).join('')}</div>`
+    : `<div class="list"><div class="empty">${ic('trash', 30)}<p>The recycle bin is empty.</p></div></div>`}
+  <div class="card" style="margin-top:18px"><h3>${ic('search')}Can’t find something?</h3><p class="hint">Search every commit Git still remembers, including undone commits and dropped stashes.</p>
+  ${btn('Search for lost work', 'lostScan', {}, '', false, 'search')}
+  ${S.lost ? S.lost.length ? `<div class="list" style="margin-top:14px">${S.lost.map(c => `<div class="row"><div class="main"><div class="name">${esc(c.stash ? stashLabel(c.subject) : c.subject)}</div><div class="meta">${esc(c.when)} <code>${c.sha.slice(0, 7)}</code></div></div>
+    <div class="acts">${c.stash ? btn('Restore as stash', 'restore', { kind: 'stash', sha: c.sha }, 'primary') : ''}${btn('Restore as branch', 'restore', { kind: 'branch', sha: c.sha, name: 'recovered-' + c.sha.slice(0, 7) }, c.stash ? '' : 'primary')}
+      ${btn('View', 'showLost', { sha: c.sha }, 'ghost', false, 'eye')}</div></div>`).join('')}</div>` : '<p class="hint" style="margin-top:10px">No lost work found.</p>' : ''}</div>`
+}
+function plain(a) {
+  const rules = [
+    [/^commit \(initial\): (.*)/, 'First commit: $1'], [/^commit \(amend\): (.*)/, 'Amended: $1'], [/^commit \(merge\): (.*)/, '$1'],
+    [/^commit: (.*)/, 'Committed: $1'], [/^checkout: moving from (\S+) to (\S+)/, 'Switched from $1 to $2'], [/^reset: moving to (.*)/, 'Went back to $1'],
+    [/^merge (\S+): Fast-forward/, 'Merged $1'], [/^merge (\S+):.*/, 'Merged $1'], [/^pull.*/, 'Synced with the server'],
+    [/^rebase.*\(finish\).*/, 'Finished a rebase'], [/^rebase.*\(start\).*/, 'Started a rebase'], [/^rebase.*\(pick\): (.*)/, 'Rebase replayed: $1'],
+    [/^cherry-pick: (.*)/, 'Copied commit: $1'], [/^branch: Created from (.*)/, 'Branch created from $1'], [/^Branch: renamed (.*) to (.*)/, 'Renamed $1 to $2'],
+  ]
+  for (const [re, out] of rules) if (re.test(a)) return a.replace(re, out).replace(/refs\/heads\//g, '').replace(/\b([0-9a-f]{7})[0-9a-f]{33}\b/g, '$1')
+  return a
+}
+function undoView(s) {
+  const r = S.reflog
+  return `<div class="vhead first"><h2>Undo history</h2></div>
+  <p class="hint" style="margin:-4px 0 12px">Every change to ${s.detached ? 'where you are' : esc(s.branch)}. Jump back to any moment; unsaved work is backed up first.</p>
+  ${r?.length ? `<div class="list">${r.map((x, i) => `<div class="row">${ic(i === 0 ? 'checkc' : 'clock')}<div class="main"><div class="name">${esc(plain(x.action))}</div>
+    <div class="meta">${esc(x.when.replace(/^.*@\{(.*)\}$/, '$1'))} <code class="faint">${x.short}</code></div></div>
+    <div class="acts">${i === 0 ? '<span class="badge here">Now</span>' : btn('Go back to here', 'undoTo', { sha: x.sha, label: plain(x.action) }, '', false, 'rewind')
+      + menu([btn('New branch from here', 'newBranch', { start: x.sha }, '', false, 'branch')])}</div></div>`).join('')}</div>`
+    : `<div class="list"><div class="empty">${ic('undo', 30)}<p>Nothing recorded yet.</p></div></div>`}`
+}
+
+// ---------- Command line, settings ----------
+function cliView(s) {
+  return `<div class="vhead first"><h2>Command line</h2></div><p class="hint" style="margin:-4px 0 12px">For anything the buttons don’t cover. Runs inside <code>${esc(s.short_path)}</code>.</p>
+  <div class="form"><span class="btnlike" style="cursor:default"><code>git</code></span><input id="cmd" class="mono" placeholder="status" value="${esc(val('cmd'))}" data-enter="runCmd" aria-label="Git command" autocomplete="off" spellcheck="false">${btn('Run', 'runCmd', {}, 'primary')}</div>
+  <div class="chips" style="margin-top:10px">${['status', 'log --oneline --graph --all -30', 'branch -a', 'remote -v', 'diff --stat', 'shortlog -sn'].map(c => btn('git ' + c, 'runCmd', { cmd: c }, 'chip')).join('')}</div>
+  ${S.cmdOut ? `<pre class="out">${esc(S.cmdOut)}</pre>` : ''}`
+}
+function settingsView(s) {
+  const remotes = Object.entries(s.remotes)
+  return `<div class="vhead first"><h2>Settings</h2></div>
+  <div class="card"><h3>${ic('user')}Your name and email</h3><p class="hint">On every commit you make, in all projects.</p>
+    <div class="form"><input id="whoName" placeholder="Your name" value="${esc(val('whoName', s.who.name))}" aria-label="Your name"><input id="whoEmail" type="email" placeholder="you@example.com" value="${esc(val('whoEmail', s.who.email))}" aria-label="Your email">${btn('Save', 'saveWho', {}, 'primary')}</div></div>
+  <div class="card"><h3>${ic('cloud')}Back up online</h3>
+  ${remotes.length ? `<p class="hint">${remotes.length > 1 ? 'New branches are published to the one marked below. Each branch keeps syncing with the server it’s linked to.' : 'Connected. Press Sync in the toolbar to upload and download.'}</p>
+    <div class="list">${remotes.map(([n, u]) => { const host = hostName(u) === 'the server' ? n : hostName(u), main = remotes.length > 1 && n === s.main_remote
+      return `<div class="row">${ic('cloud')}<div class="main"><div class="name">${esc(remotes.length > 1 ? ownerOf(u) || n : host)}${remotes.length > 1 ? `<span class="badge">${esc(host)}</span>` : ''}
+        ${main ? `<span class="badge here">${ic('check', 12)}New branches go here</span>` : ''}</div><div class="meta">${esc(u)} <span class="faint">(nickname: ${esc(n)})</span></div></div>
+        ${remotes.length > 1 && !main ? btn('Use for new branches', 'setMainRemote', { name: n }, 'ghost') : ''}${btn('Disconnect', 'removeRemote', { name: n }, 'ghost danger')}</div>` }).join('')}</div>`
+    : `<p class="hint">Connect to GitHub (or GitLab, Bitbucket) to back up and share your work.</p>
+    <ol class="steps"><li>Create a repository at <a href="https://github.com/new" target="_blank" rel="noopener">github.com/new</a>. Leave it <b>empty</b>: no README.</li><li>Copy its address and paste it below.</li></ol>`}
+  ${!remotes.length || S.adv ? `<div class="form" style="margin-top:12px">${S.adv ? `<input id="remName" placeholder="Nickname" value="${esc(val('remName', remotes.length ? '' : 'origin'))}" style="flex:0 1 130px" aria-label="Server nickname">` : ''}
+    <input id="remUrl" placeholder="https://github.com/you/project.git" aria-label="Repository address" value="${esc(val('remUrl'))}" autocomplete="off" spellcheck="false">${btn('Connect', 'addRemote', {}, 'primary')}</div>` : ''}</div>
+  <div class="card"><h3>${ic('eye')}Ignored files</h3><p class="hint">Git won’t track anything in <code>.gitignore</code>. Add common ones:</p>
+    <div class="chips">${['node_modules/', '.DS_Store', '.env', 'vendor/', 'dist/', '*.log'].map(p => btn(p, 'ignore', { pattern: p }, 'chip')).join('')}</div></div>
+  <div class="card"><h3>${ic('sliders')}Advanced tools</h3>
+    <label class="switch"><input type="checkbox" data-act="toggleAdv" ${S.adv ? 'checked' : ''}>Show rebase, cherry-pick, tags, force push and the command line</label></div>
+  <div class="card"><h3>${ic('folder')}This project</h3><p class="hint">Removing it only takes it off KrazyGit’s list. Your files and history stay put.</p>${btn('Remove from KrazyGit', 'forgetRepo', {}, 'danger')}</div>`
+}
+
+// ---------- Conflicts ----------
+function parseConflicts(text) {
+  const segs = []
+  let buf = '', cur = null
+  for (const l of text.split(/(?<=\n)/)) {
+    if (!cur && /^<{7}( |\r?\n|$)/.test(l)) { if (buf) segs.push({ text: buf }); buf = ''; cur = { ours: '', base: '', theirs: '', lo: l.slice(8).trim(), part: 'ours' }; continue }
+    if (cur) {
+      if (cur.part === 'ours' && /^\|{7}( |\r?\n|$)/.test(l)) cur.part = 'base'
+      else if (cur.part !== 'theirs' && /^={7}(\r?\n|$)/.test(l)) cur.part = 'theirs'
+      else if (cur.part === 'theirs' && /^>{7}( |\r?\n|$)/.test(l)) { cur.lt = l.slice(8).trim(); segs.push(cur); cur = null }
+      else cur[cur.part] += l
+      continue
+    }
+    buf += l
+  }
+  if (cur) return null // unterminated markers: fall back to editing by hand
+  if (buf) segs.push({ text: buf })
+  return segs
+}
+async function loadConflict(f) {
+  const cf = { path: f.path }
+  if (f.x === 'D' || f.y === 'D') return cf
+  try {
+    const r = await api('read_file', { repo: S.repo, path: f.path })
+    if (r.binary) return { ...cf, binary: true }
+    const segs = parseConflicts(r.text)
+    if (segs) {  // attach the original to each clash, but only where it lines up exactly with what's in the file
+      const base = await api('conflict_base', { repo: S.repo, path: f.path }).catch(() => null)
+      const fb = segs.filter(x => x.text === undefined), bb = ((base && parseConflicts(base)) || []).filter(x => x.text === undefined)
+      const norm = t => t.replace(/\r\n/g, '\n')
+      const clean = t => !/^[<>=|]{7,}/m.test(t)  // a criss-cross history leaves Git's own leftover markers in the original
+      if (bb.length === fb.length) fb.forEach((x, i) => { if (norm(bb[i].ours) === norm(x.ours) && norm(bb[i].theirs) === norm(x.theirs) && clean(bb[i].base)) Object.assign(x, { base: bb[i].base, hasBase: true }) })
+    }
+    return { ...cf, raw: r.text, crlf: r.text.includes('\r\n'), segs }
+  } catch (e) { return { ...cf, error: e.hint || e.error } }
+}
+function sides(s) {
+  return {
+    merge: [`Yours (${s.branch})`, 'Incoming'], rebase: ['The branch you’re rebasing onto', 'Your commit'],
+    'cherry-pick': ['Yours', 'The copied commit'], revert: ['Current', 'The undo'],
+  }[s.doing] || ['Your current files', 'The stash']
+}
+const eolOf = cf => cf.crlf ? '\r\n' : '\n'
+const joinLines = (a, b, eol) => a && !a.endsWith('\n') ? a + eol + b : a + b
+const shown = t => esc(t.replace(/\r?\n$/, ''))
+function composed(cf, keepMarkers) {
+  return cf.segs.map(x => x.text ?? x.res ?? (keepMarkers ? `<<<<<<< ${x.lo}\n${x.ours}=======\n${x.theirs}>>>>>>> ${x.lt}\n` : '')).join('')
+}
+const keyLines = t => t.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+// Compare the two sides (and the original, when known) to suggest what to keep, and say why.
+function advise(x, mine, theirs) {
+  const O = new Set(keyLines(x.ours)), T = new Set(keyLines(x.theirs)), B = x.hasBase ? new Set(keyLines(x.base)) : new Set()
+  const onlyO = [...O].filter(l => !T.has(l)), onlyT = [...T].filter(l => !O.has(l))
+  const removedO = [...B].filter(l => !O.has(l)), removedT = [...B].filter(l => !T.has(l))
+  const both = { onlyO, onlyT }
+  if (!onlyO.length && !onlyT.length) return { ...both, pick: 'ours', why: 'Both sides have the same lines; only the order or spacing differs. Either is fine.' }
+  if (!onlyT.length && !removedT.some(l => O.has(l)))
+    return { ...both, pick: 'ours', why: `${mine} already has every line from ${theirs.toLowerCase()}, plus ${plural(onlyO.length, 'line')} of its own. Keeping it loses nothing.` }
+  if (!onlyO.length && !removedO.some(l => T.has(l)))
+    return { ...both, pick: 'theirs', why: `${theirs} already has every line from ${mine.toLowerCase()}, plus ${plural(onlyT.length, 'line')} of its own. Keeping it loses nothing.` }
+  if (removedO.some(l => removedT.includes(l)))
+    return { ...both, pick: null, why: 'Both sides changed the same line in different ways, so only you can decide which is right. If unsure, ask whoever made the other change.' }
+  if (x.hasBase) return { ...both, pick: 'combine', why: 'Each side added something different. Combining keeps both sets of additions, with no duplicates.' }
+  return { ...both, pick: null, why: 'Each side has lines the other doesn’t. Combine keeps them all with no duplicates, or keep one side if the other’s lines should go.' }
+}
+// Yours first, then incoming's extra lines. Lines either side deliberately deleted (known from the original) stay deleted.
+function combine(x, eol) {
+  const split = t => t.split(/(?<=\n)/).filter(l => l !== '')
+  const O = new Set(keyLines(x.ours)), T = new Set(keyLines(x.theirs))
+  const removed = new Set(x.hasBase ? keyLines(x.base).filter(l => !O.has(l) || !T.has(l)) : [])
+  const seen = new Set(), out = []
+  for (const l of split(x.ours)) { const k = l.trim(); if (k && removed.has(k)) continue; if (k) seen.add(k); out.push(l) }
+  for (const l of split(x.theirs)) {
+    const k = l.trim()
+    if (!k || seen.has(k) || removed.has(k)) continue
+    seen.add(k)
+    if (out.length && !out[out.length - 1].endsWith('\n')) out[out.length - 1] += eol
+    out.push(l.endsWith('\n') ? l : l + eol)
+  }
+  return out.join('')
+}
+function decide(cf, x, pick) {
+  const eol = eolOf(cf), [mine, theirs] = sides(S.st)
+  x.res = { ours: x.ours, theirs: x.theirs, both: joinLines(x.ours, x.theirs, eol), combine: combine(x, eol) }[pick]
+  x.choice = { ours: `Kept ${mine.toLowerCase()}`, theirs: `Kept ${theirs.toLowerCase()}`, both: 'Kept both as they were', combine: 'Combined both, no duplicates' }[pick]
+}
+// Apply every suggestion that loses nothing. Returns true when that decides every clash in the file.
+function applySafe(cf) {
+  const [mine, theirs] = sides(S.st)
+  let all = true
+  for (const x of cf.segs.filter(x => x.text === undefined && x.res === undefined && !x.editing)) {
+    const pick = advise(x, mine, theirs).pick
+    if (pick) decide(cf, x, pick); else all = false
+  }
+  return all && !cf.segs.some(x => x.editing)
+}
+const HOW_TO_CHOOSE = `<ol style="padding-left:20px;margin:0;display:grid;gap:8px">
+  <li><b>Lines in bold</b> exist only on that side. Faded lines are on both sides.</li>
+  <li><b>One side already has everything the other has?</b> Keep that side.</li>
+  <li><b>Each side added different things</b> (imports, list items, routes, settings)? Combine them.</li>
+  <li><b>Both changed the same line differently?</b> Decide which behaviour you want. Ask whoever made the other change if unsure.</li>
+  <li>Avoid <b>Keep both as they are</b> for imports or lists: it can repeat lines, and many languages (PHP, Python, JS) reject a repeated import.</li>
+  <li>After finishing, run your app or tests before you sync.</li></ol>`
+function conflictsView(s) {
+  const files = s.files.filter(f => f.conflict)
+  const head = `<div class="vhead first"><h2>Conflicts</h2>${s.doing ? `${files.length ? '' : btn(s.doing === 'merge' ? 'Finish merge' : 'Continue', 'finish', { kind: s.doing, action: 'continue' }, 'primary', false, 'check')}
+    ${s.doing === 'rebase' || s.doing === 'cherry-pick' ? btn('Skip this commit', 'finish', { kind: s.doing, action: 'skip' }, 'ghost') : ''}${btn('Cancel and go back', 'finish', { kind: s.doing, action: 'abort' }, 'ghost danger', false, 'undo')}` : ''}</div>
+    <div class="banner">${ic('alert')}<div>${s.doing ? `<b>${DOING[s.doing]} in progress.</b> ${files.length ? `Choose what to keep in each file. ${plural(files.length, 'file')} left.` : 'All fixed. Finish to save the result.'}`
+      : '<b>Bringing back a stash caused clashes.</b> Choose what to keep. The stash stays on the shelf until you delete it.'}</div>${files.length > 1 ? btn('Fix the easy ones', 'fixAllEasy', {}, 'primary', false, 'bulb') : ''}${btn('How do I choose?', 'howToChoose', {}, 'ghost', false, 'help')}</div>`
+  if (!files.length) return head
+  const sel = files.find(f => f.path === S.cfPath) || files[0]
+  const label = f => f.x === 'D' && f.y === 'D' ? 'Both deleted' : f.x === 'D' || f.y === 'D' ? 'One side deleted' : f.x === 'A' && f.y === 'A' ? 'Both added' : 'Both edited'
+  return head + `<div class="cf-files" role="tablist" aria-label="Files with clashes">${files.map(f => `<button class="${f === sel ? 'on' : ''}" role="tab" aria-selected="${f === sel}" data-act="pickConflict" data-path="${esc(f.path)}" title="${esc(f.path)}: ${label(f)}">
+      <span class="st c">!</span>${esc(f.path.split('/').pop())}</button>`).join('')}</div>
+    <div class="card" id="cfpane">${conflictFile(sel, sides(s))}</div>`
+}
+function conflictFile(f, [mine, theirs]) {
+  const cf = S.cf?.path === f.path ? S.cf : null
+  if (!cf) return '<p class="hint">Loading…</p>'
+  const more = menu([btn(`Use ${mine.toLowerCase()} for the whole file`, 'takeSide', { path: f.path, side: 'ours' }, '', false, 'file'),
+    btn(`Use ${theirs.toLowerCase()} for the whole file`, 'takeSide', { path: f.path, side: 'theirs' }, '', false, 'file'),
+    cf.segs ? btn('Edit the whole file by hand', 'manualConflict', {}, '', false, 'edit') : '',
+    btn('I fixed it in my editor', 'markResolved', { path: f.path }, '', false, 'check'), btn('Reload file', 'reloadConflict', {}, '', false, 'refresh')])
+  const title = `<div class="cf-head"><h3>${esc(f.path)}</h3><span class="spacer"></span>${more}</div>`
+  const card = (tone, icon, head, sub, acts = '') => `<section class="next ${tone}" style="margin-bottom:14px"><div class="tilebig">${ic(icon, 22)}</div>
+    <div class="t"><b>${head}</b><span>${sub}</span></div><div class="acts">${acts}</div></section>`
+  if (f.x === 'D' || f.y === 'D') {  // one side deleted the file: the only question is keep or delete
+    const keepSide = f.x === 'D' ? 'theirs' : 'ours', who = f.x === 'D' ? theirs.toLowerCase() : mine.toLowerCase()
+    return title + (f.x === 'D' && f.y === 'D' ? card('tip', 'trash', 'Both sides deleted this file', 'Nothing to decide.', btn('Delete it', 'takeSide', { path: f.path, side: 'ours' }, 'primary big'))
+      : card('warn', 'alert', `${f.x === 'D' ? mine : theirs} deleted this file`, `But ${who} changed it. Keep the file with those changes, or let it go?`,
+        btn('Keep the file', 'takeSide', { path: f.path, side: keepSide }, 'primary big') + btn('Delete it', 'takeSide', { path: f.path, side: keepSide === 'ours' ? 'theirs' : 'ours' }, 'big')))
+  }
+  if (cf.binary || cf.error) return title + card('warn', 'file', cf.binary ? 'This isn’t a text file' : 'This file couldn’t be read', cf.binary ? 'Pick one whole version.' : esc(cf.error),
+    btn(`Keep ${mine.toLowerCase()}`, 'takeSide', { path: f.path, side: 'ours' }, 'primary big') + btn(`Keep ${theirs.toLowerCase()}`, 'takeSide', { path: f.path, side: 'theirs' }, 'big'))
+  if (cf.manual !== undefined || !cf.segs) return `${title}<p class="hint" style="margin-bottom:10px">Edit the file so it reads how you want, then save. Remove the marker lines (<code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code>, <code>=======</code>, <code>&gt;&gt;&gt;&gt;&gt;&gt;&gt;</code>).</p>
+    <textarea id="cfm" class="big" spellcheck="false" aria-label="File contents">\n${esc(cf.manual ?? cf.raw)}</textarea>
+    <div class="btns" style="margin-top:10px">${btn('Save file and mark fixed', 'saveManual', {}, 'primary', false, 'check')}${cf.segs ? btn('Back to side by side', 'cfBack', {}, 'link') : ''}</div>`
+  const blocks = cf.segs.filter(x => x.text === undefined), last = cf.segs.length - 1
+  const pending = blocks.filter(x => x.res === undefined || x.editing), easy = pending.filter(x => !x.editing && advise(x, mine, theirs).pick), hard = pending.length - easy.length
+  const save = btn('Save file', 'saveConflict', {}, 'primary big', false, 'check')
+  const summary = !blocks.length ? card('done', 'check', 'No clashes left in this file', 'Save it to mark it fixed.', save)
+    : !pending.length ? card('done', 'check', 'Everything in this file is decided', 'Save it to mark it fixed.', save)
+    : !hard ? card('', 'bulb', 'KrazyGit can fix this file for you', pending.length === 1 ? esc(advise(pending[0], mine, theirs).why) : `All ${pending.length} clashes have a choice that loses nothing.`,
+        btn('Fix this file', 'cfFixFile', {}, 'primary big', false, 'check'))
+    : card('warn', 'alert', `${plural(hard, 'clash', 'clashes')} need${hard === 1 ? 's' : ''} your decision`,
+        easy.length ? `KrazyGit can handle the other ${easy.length}.` : hard === 1 ? 'Pick a side below.' : 'Pick a side for each one below.', easy.length ? btn(`Use the ${easy.length} safe choice${easy.length === 1 ? '' : 's'}`, 'cfApplyAll', {}, 'big', false, 'bulb') : '')
+  const solo = pending.length === 1 && !hard
+  return title + summary + `<div>${cf.segs.map((x, i) => x.text !== undefined ? context(x.text, i === 0, i === last) : clash(x, i, mine, theirs, solo)).join('')}</div>
+    ${blocks.length > 1 && !pending.length ? `<div class="btns" style="margin-top:14px">${save}</div>` : ''}`
+}
+function context(text, first, last) {
+  const lines = text.split(/(?<=\n)/)
+  if (lines.length <= 8) return `<pre class="ctx">${shown(text)}</pre>`
+  const head = first ? [] : lines.slice(0, 3), tail = last ? [] : lines.slice(-3)
+  return `<pre class="ctx">${head.length ? shown(head.join('')) : ''}<span class="gap">${plural(lines.length - head.length - tail.length, 'unchanged line')}</span>${tail.length ? shown(tail.join('')) : ''}</pre>`
+}
+function clash(x, i, mine, theirs, solo = false) {
+  if (x.editing) return `<div class="blk"><div class="blk-bar"><span>Write exactly what this part should say</span>${btn('Done', 'cfDone', { i }, 'primary')}</div>
+    <textarea id="cfe${i}" data-cf="${i}" spellcheck="false" rows="${Math.min(20, x.draft.split('\n').length + 1)}" aria-label="Edit this part">\n${esc(x.draft)}</textarea></div>`
+  if (x.res !== undefined) return `<div class="blk done"><div class="blk-bar"><span>${ic('check', 14)} ${esc(x.choice)}</span>${btn('Change', 'cfUndo', { i }, 'link')}</div><pre>${shown(x.res) || '<i>(removed)</i>'}</pre></div>`
+  const a = advise(x, mine, theirs), rec = a.pick, O = new Set(keyLines(x.ours)), T = new Set(keyLines(x.theirs))
+  const label = { ours: `Keep ${mine.toLowerCase()}`, theirs: `Keep ${theirs.toLowerCase()}`, combine: 'Combine both' }
+  const lines = (text, other) => text ? text.replace(/\r?\n$/, '').split(/\r?\n/).map(l =>
+    `<span class="ln ${l.trim() && !other.has(l.trim()) ? 'uniq' : 'same'}">${esc(l) || ' '}</span>`).join('') : '<i>(nothing)</i>'
+  const extra = only => `<span class="badge ${only.length ? 'here' : ''}">${only.length ? `${plural(only.length, 'line')} only here` : 'nothing extra'}</span>`
+  const side = (cls, name, text, other, only, pick) => `<div class="side ${cls}"><div class="blk-bar"><b>${name}</b>${extra(only)}
+    ${btn('Keep this', 'cfPick', { i, pick }, rec === pick ? 'primary' : '')}</div><pre>${lines(text, other)}</pre></div>`
+  return `<div class="blk">
+    <div class="advice ${rec ? '' : 'warn'}">${ic(rec ? 'bulb' : 'alert')}<div>${solo && rec ? `<b>Suggested:</b> ${esc(label[rec].toLowerCase())}` : esc(a.why)}</div>${rec ? btn(label[rec], 'cfPick', { i, pick: rec }, 'primary', false, 'check') : ''}
+      ${menu([btn('Combine both, no duplicates', 'cfPick', { i, pick: 'combine' }, '', false, 'merge'), btn('Keep both as they are', 'cfPick', { i, pick: 'both' }, '', false, 'copy'),
+        btn('Edit by hand', 'cfEdit', { i }, '', false, 'edit')])}</div>
+    <div class="sides">${side('mine', esc(mine), x.ours, T, a.onlyO, 'ours')}${side('theirs', esc(theirs) + (x.lt ? ` <span class="faint">(${esc(x.lt)})</span>` : ''), x.theirs, O, a.onlyT, 'theirs')}</div>
+    ${x.hasBase ? `<details class="orig"><summary>Show the original, before either change</summary><pre>${shown(x.base) || '<i>(empty: both sides added new lines here)</i>'}</pre></details>` : ''}</div>`
+}
+
+// ---------- actions ----------
+async function selectRepo(path) {
+  fresh()
+  S.repo = path
+  store('repo', path || '')
+  await refresh()
+}
+async function addFolder(path) {
+  const r = await api('add_repo', { path })
+  if (r.added) { S.repos = await api('repos'); toast(`Added ${r.added.split('/').pop()}.`); return selectRepo(r.added) }
+  const name = r.path.split('/').pop()
+  if (r.found.length) {
+    const c = await ask({ title: `Found ${plural(r.found.length, 'Git project')} inside ${name}`,
+      body: `<ul>${r.found.map(p => `<li>${esc(p.slice(r.path.length + 1))}</li>`).join('')}</ul>`,
+      buttons: [['Track the whole folder instead', 'init', ''], [`Add ${r.found.length === 1 ? 'it' : `all ${r.found.length}`}`, 'all', 'primary']] })
+    if (c === 'all') { await api('add_many', { paths: r.found }); S.repos = await api('repos'); toast(`Added ${plural(r.found.length, 'project')}.`); return selectRepo(r.found[0]) }
+    if (c !== 'init') return
+  } else if (!await confirmIt(`${name} doesn’t use Git yet`, 'Start tracking it? Git will remember every version of your files from now on. Nothing in the folder changes except a hidden <code>.git</code> folder.', 'Start tracking')) return
+  await api('init', { path: r.path })
+  S.repos = await api('repos')
+  toast(`${name} is now tracked by Git.`)
+  return selectRepo(r.path)
+}
+// Returns the Recycle bin entry, or null if nothing was deleted.
+async function deleteBranch(name) {
+  try { return await api('delete_branch', { repo: S.repo, name }) } catch (e) {
+    if (!/not fully merged/.test(e.error)) { showError(e); return null }
+    if (!await confirmIt(`${name} has unmerged work`, 'Some commits on this branch aren’t on any other branch. Delete it anyway? You can still restore it from the Recycle bin.', 'Delete anyway', 'danger-btn')) return null
+    return api('delete_branch', { repo: S.repo, name, force: true })
+  }
+}
+// Deletes several local branches; asks once about any with unmerged work. Returns the Recycle bin entries.
+async function deleteMany(names) {
+  const gone = [], unmerged = []
+  for (const name of names) {
+    try { gone.push(await api('delete_branch', { repo: S.repo, name })) } catch (e) { if (/not fully merged/.test(e.error)) unmerged.push(name); else showError(e) }
+  }
+  if (unmerged.length && await confirmIt(`${plural(unmerged.length, 'branch has', 'branches have')} unmerged work`,
+    `<ul>${unmerged.map(n => `<li>${esc(n)}</li>`).join('')}</ul><p>Some of their commits aren’t on any other branch. Delete them anyway? They stay restorable from the Recycle bin.</p>`, 'Delete anyway', 'danger-btn'))
+    for (const name of unmerged) gone.push(await api('delete_branch', { repo: S.repo, name, force: true }))
+  return gone
+}
+async function deleteRemote(names) {
+  const host = remoteHost(S.st), mains = names.map(shortName).filter(n => MAIN.includes(n))
+  if (!await confirmIt(`Delete ${plural(names.length, 'branch', 'branches')} from ${host}?`, `<ul>${names.map(n => `<li>${esc(shortName(n))}</li>`).join('')}</ul>
+    <p>They disappear from ${esc(host)} for everyone on the project. KrazyGit keeps a copy in your Recycle bin, so you can put them back.</p>
+    ${mains.length ? `<p><b>${esc(listJoin(mains))} ${mains.length === 1 ? 'is a main branch' : 'are main branches'}.</b> Most projects need ${mains.length === 1 ? 'it' : 'them'}.</p>` : ''}`, `Delete from ${host}`, 'danger-btn')) return
+  S.bsel.clear()
+  let gone
+  try { gone = await api('delete_remote_branches', { repo: S.repo, names }) } catch (e) { showError(e); return refresh() }
+  toast(`Deleted ${plural(gone.length, 'branch', 'branches')} from ${host}.`, 'ok', null, undoAll('remote', gone))
+  return refresh()
+}
+// Git needs a name and email before the first commit: ask on the spot instead of failing.
+async function ensureWho() {
+  const w = S.st.who
+  if (w.name && w.email) return true
+  const name = w.name || await ask({ title: 'What’s your name?', body: 'Git puts your name and email on every commit. You only do this once.', input: 'Your name', buttons: [['Next', true]] })
+  if (!name) return false
+  const email = w.email || await ask({ title: 'And your email?', body: 'Use the email of your GitHub account, so your commits are linked to you there.', input: 'you@example.com', buttons: [['Save', true]] })
+  if (!email) return false
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('That email doesn’t look right. Try again.', 'warn'); return false }
+  return !!await act('set_identity', { name, email }, 'Saved your name and email.')
+}
+function syncSummary(d, s, host) {
+  if (d.sent === -1) return `Published ${s.branch} to ${host}.`
+  const parts = [d.got && `downloaded ${plural(d.got, 'new commit')}`, d.sent > 0 && `uploaded ${plural(d.sent, 'commit')}`].filter(Boolean)
+  return parts.length ? `Synced: ${parts.join(' and ')}.` : `Everything is up to date with ${host}.`
+}
+const named = (raw, what) => { const n = cleanName(raw || ''); if (!n) toast(`That ${what} name has no usable letters. Try another.`, 'warn'); return n }
+
+const ACT = {
+  noop: () => {},
+  diffMode: d => { S.diffMode = d.mode; store('diffMode', d.mode); render() },
+  refresh: () => refresh(),
+  tab: d => { S.tab = d.tab; return refresh() },
+  tips: () => { S.tipsOpen = !S.tipsOpen; render() },
+  help: () => ask({ title: 'How Git works', body: `<div class="help">${HELP}</div>`, buttons: [['Got it', true]] }),
+  quit: async () => { await api('quit'); S.closed = 'quit'; render() },
+  toggleAdv: (d, el) => { S.adv = el.checked; store('adv', S.adv ? '1' : '0'); render() },
+  addRepo: async () => {
+    let path
+    try { path = await api('pick_folder') } catch { return ACT.addPath() }
+    if (path) return addFolder(path)
+  },
+  addPath: async () => {
+    const path = await ask({ title: 'Add a project folder', body: 'Paste the full path of the folder. Tip: drag the folder from Finder into this box.', input: '/Users/you/code/my-app', buttons: [['Add', true]] })
+    if (path) return addFolder(path)
+  },
+  openRepo: d => d.path !== S.repo && selectRepo(d.path),
+  forgetRepo: async () => {
+    if (!await confirmIt('Remove this project from KrazyGit?', 'Your files and history stay where they are. You can add it back any time.', 'Remove')) return
+    await api('forget_repo', { repo: S.repo })
+    S.repos = await api('repos')
+    return selectRepo(S.repos[0]?.path || null)
+  },
+  reveal: () => act('reveal'),
+  sync: async () => {
+    const s = S.st, host = branchServer(s)
+    let d
+    try { d = await api('sync', { repo: S.repo }) } catch (e) {
+      if (!S.adv || !/\[rejected\]|non-fast-forward|fetch first/.test(e.error)) { showError(e); return refresh() }
+      const c = await ask({ title: `Your copy and ${host}’s copy have split`, body: 'This usually happens when a commit that was already uploaded got changed or undone. <b>Force push</b> replaces what’s on the server with your version. Anything that only exists on the server is lost.',
+        buttons: [['Force push', 'force', 'danger-btn']] })
+      return c ? act('sync', { force: true }, 'Force-pushed your version.') : refresh()
+    }
+    if (d.download_only) toast(`${d.got ? `Downloaded ${plural(d.got, 'new commit')}` : `${s.branch} is up to date`} from ${serverName(s, (d.relinked || s.follow?.ref || '').split('/')[0] || s.main_remote)}.${d.relinked ? ` ${s.branch} now follows it.` : ''}`,
+      'ok', null, d.got ? undoMove('keep')(d) : null)
+    else if (d.conflicts) toast('New commits from the server clash with yours. Choose what to keep in Conflicts.', 'warn')
+    else toast(syncSummary(d, s, host), 'ok', null, d.got && !d.sent ? undoMove('keep')(d) : null)
+    return refresh()
+  },
+  fetchNow: () => act('fetch', {}, 'Branch list is up to date.'),
+  hideTip: d => { hideFor(d.key); render() },
+  toggleDl: d => act('set_download_only', { name: d.name, on: !!d.on }, d.on ? `${d.name} now only downloads. Sync will never upload it.` : `${d.name} can upload again.`),
+  moveCommits: async () => {
+    const s = S.st, raw = await ask({ title: `Move ${plural(s.follow.ahead, 'commit')} off ${s.branch}`, body: `They go to a new branch you can upload. ${esc(s.branch)} goes back to matching ${esc(followServer(s))}. Uncommitted work comes along.`,
+      input: 'Name the new branch', value: `${s.branch}-my-work`, buttons: [['Move them', true]] })
+    const name = raw && named(raw, 'branch')
+    if (name) return act('move_commits', { name }, `Moved your commits to ${name}. ${s.branch} matches ${followServer(s)} again.`)
+  },
+  moveRemote: async d => {
+    const s = S.st, to = serverName(s, d.remote), from = serverName(s, upRemote(s))
+    const ok = d.there
+      ? await confirmIt(`Sync ${s.branch} with ${to}?`, `From now on Sync downloads ${esc(s.branch)}’s updates from <b>${esc(to)}</b>, and uploads there if you commit to it. Nothing is uploaded now, and the copy on ${esc(from)} isn’t touched.`, `Sync with ${to}`)
+      : await confirmIt(`Upload ${s.branch} to ${to}?`, `Sync uses <b>${esc(to)}</b> for this branch from now on. The copy on ${esc(from)} stays where it is: delete it from Branches › Online if you don’t need it.`, `Upload to ${to}`)
+    if (ok) return act('link_to', { remote: d.remote }, r => r?.uploaded ? `Uploaded ${s.branch} to ${to}. Sync now uses ${to} for this branch.` : `${s.branch} now syncs with ${to}. Press Sync to get its latest updates.`)
+  },
+  keepRemote: () => { store(`keep:${S.st.path}:${S.st.branch}`, '1'); render() },
+  setMainRemote: d => act('set_main_remote', { name: d.name }, `New branches will be published to ${serverName(S.st, d.name)}.`),
+  bRemote: (d, el) => { S.bremote = el.value; S.bsel.clear(); render() },
+  setWho: async () => { await ensureWho() },
+
+  // changes
+  select: async d => { S.sel = d.path; await loadTab().catch(showError); render() },
+  stageToggle: (d, el) => act(el.checked ? 'stage' : 'unstage', { paths: el.checked ? [d.path] : [d.path, d.orig].filter(Boolean) }),
+  stageAll: (d, el) => act(el.checked ? 'stage' : 'unstage'),
+  amendToggle: (d, el) => { S.amend = el.checked; if (S.amend && !val('msg')) S.f.msg = S.st.last_message; render() },
+  useSuggestion: () => { S.f.msg = suggestMsg(S.st.files.filter(f => !f.conflict)); render(); $('#msg')?.focus() },
+  commit: async () => {
+    if (!await ensureWho()) return
+    if (dlOnly(S.st) && !S.amend) {
+      const c = await ask({ title: `${S.st.branch} only downloads`, body: `Commits on ${esc(S.st.branch)} can’t be uploaded. Put this work on its own branch? Your changes come with you, and you can commit there.`,
+        buttons: [[`Commit on ${S.st.branch} anyway`, 'here', ''], ['Create a branch', 'branch', 'primary']] })
+      if (!c) return
+      if (c === 'branch') return ACT.newBranch({})
+    }
+    const files = S.st.files.filter(f => !f.conflict)
+    if (!files.length && !S.amend) return toast('There’s nothing to commit.', 'warn')
+    if (S.amend && !await confirmIt('Add to your last commit?', `Your changes join “${esc(S.st.last_message.split('\n')[0])}” instead of making a new commit.`, 'Amend')) return
+    let everything = !S.amend && !files.some(isStaged)
+    const going = everything ? files : files.filter(isStaged)
+    const risky = going.filter(f => (f.x === '?' || f.x === 'A') && SECRET.test(f.path)), big = going.filter(f => f.size > BIG)
+    let skip = []
+    if (risky.length || big.length) {
+      const list = fs => `<ul>${fs.map(f => `<li><code>${esc(f.path)}</code>${f.size > BIG ? ` (${mb(f.size)})` : ''}</li>`).join('')}</ul>`
+      const c = await ask({ title: 'Check these files first',
+        body: (risky.length ? `<p>These look like passwords or secret keys. Once they’re committed and uploaded, they’re very hard to remove:</p>${list(risky)}` : '') +
+          (big.length ? `<p>These are very large. GitHub refuses files over 100 MB, and big files make every sync slow:</p>${list(big)}` : ''),
+        buttons: [['Commit them anyway', 'go', 'danger'], ['Leave them out', 'skip', 'primary']] })
+      if (!c) return
+      if (c === 'skip') {  // ignore the new ones so they stop coming back, and keep all of them out of this commit
+        skip = [...new Set([...risky, ...big])]
+        for (const f of skip.filter(f => f.x === '?' || f.x === 'A')) await api('ignore', { repo: S.repo, pattern: f.path })
+        if (everything) await api('stage', { repo: S.repo })
+        const inIndex = skip.filter(f => f.x !== '?').map(f => f.path)
+        if (inIndex.length) await api('unstage', { repo: S.repo, paths: inIndex })
+        everything = false
+      }
+    }
+    const rest = going.filter(f => !skip.includes(f))
+    const msg = val('msg').trim() || suggestMsg(rest.length ? rest : [{ path: '.gitignore', x: 'M', y: '.' }])
+    if (await act('commit', { message: msg, amend: S.amend, everything }, S.amend ? 'Amended your last commit.' : `Committed: ${msg.split('\n')[0]}`, undoMove('soft'))) {
+      delete S.f.msg; S.amend = false; render()
+    }
+  },
+  editMessage: async () => {
+    const m = await ask({ title: 'Edit last commit message', input: 'Describe what you changed', value: S.st.last_message, buttons: [['Save message', true]] })
+    if (m) return act('commit', { message: m, amend: true }, 'Updated the message.', undoMove('soft'))
+  },
+  undoCommit: async () => {
+    const s = S.st, last = esc(s.last_message.split('\n')[0])
+    if (pushed(s)) {  // already shared: reverse it with a new commit instead of rewriting history
+      if (await confirmIt('Undo your last commit?', `“${last}” is already on ${esc(remoteHost(s))}, so KrazyGit adds a new commit that reverses it. That’s the safe way to undo shared work.`, 'Undo commit'))
+        return act('revert', { sha: 'HEAD' }, 'Done. A new commit reverses it. Sync to upload it.', undoMove('keep'))
+      return
+    }
+    if (await confirmIt('Undo your last commit?', `“${last}” is taken back. The changes stay in your files, so nothing is lost.`, 'Undo commit'))
+      return act('undo_commit', {}, 'Undid the last commit. Your changes are still in your files.', undoMove('soft'))
+  },
+  discard: async d => {
+    if (await confirmIt(`Discard changes to ${d.path}?`, `${d.new ? 'This file is new, so discarding removes it. ' : 'The file goes back to how it was in your last commit. '}A backup is kept in Stashes.`, 'Discard', 'danger-btn'))
+      return act('discard', { paths: [d.path, d.orig].filter(Boolean) }, 'Discarded. A backup is in Stashes.', undoDiscard)
+  },
+  discardAll: async () => {
+    const n = S.st.files.filter(f => !f.conflict).length
+    if (await confirmIt(`Throw away all ${plural(n, 'change')}?`, 'Every file goes back to your last commit, and new files are removed. A backup is kept in Stashes, and you can press Undo straight after.', 'Discard everything', 'danger-btn'))
+      return act('discard', { paths: ['.'] }, 'Discarded all changes. A backup is in Stashes.', undoDiscard)
+  },
+  ignore: d => act('ignore', { pattern: d.pattern }, `Added ${d.pattern} to .gitignore.`),
+  stashAll: async () => {
+    const m = await ask({ title: 'Stash your changes', body: 'Your changes go on the shelf and your files go back to your last commit. Bring them back any time.', input: 'What were you working on? (optional)', buttons: [['Stash', true]] })
+    if (m !== null) return act('stash_save', { message: m }, 'Stashed your changes.', () => () => act('stash_apply', { ref: 'stash@{0}', pop: true }, 'Undone. Your changes are back.'))
+  },
+
+  // branches
+  newBranch: async d => {
+    const s = S.st, from = d.start
+    const raw = await ask({ title: 'New branch', body: `Starts from ${from ? `<code>${esc(from.length === 40 ? from.slice(0, 7) : from)}</code>` : s.detached ? 'this commit' : `<b>${esc(s.branch)}</b>`}. You switch to it, and uncommitted changes come along.`,
+      input: 'Describe the work, e.g. fix login button', buttons: [['Create branch', true]] })
+    const name = raw && named(raw, 'branch')
+    if (name) return act('create_branch', { name, start: from || null }, `Created ${name} and switched to it.`)
+  },
+  switch: async d => {
+    const s = S.st, target = d.remote ? shortName(d.name) : d.name
+    let stash = false
+    if (s.files.some(f => !f.conflict) && !s.detached) {
+      const c = await ask({ title: `Switch to ${target}`, body: `You have uncommitted changes on <b>${esc(s.branch)}</b>. What should happen to them?`,
+        buttons: [[`Leave them on ${s.branch}`, 'stash', ''], [`Bring them to ${target}`, 'bring', 'primary']] })
+      if (!c) return
+      stash = c === 'stash'
+    }
+    const back = !s.detached && (() => () => act('switch', { name: s.branch }, `Back on ${s.branch}.`))
+    return act('switch', { name: d.name, remote: !!d.remote, stash_first: stash }, `Switched to ${target}.${stash ? ` Your changes are waiting on ${s.branch}.` : ''}`, back)
+  },
+  merge: async d => {
+    const cur = S.st.branch, p = await api('merge_preview', { repo: S.repo, name: d.name })
+    if (!p.count) return toast(`${cur} already has everything from ${d.name}.`)
+    const body = `Brings ${plural(p.count, 'commit')} from <b>${esc(d.name)}</b> into <b>${esc(cur)}</b>.` + (p.clashes.length
+      ? `<p>These files changed on both sides, so you’ll choose what to keep:</p><ul>${p.clashes.map(f => `<li><code>${esc(f)}</code></li>`).join('')}</ul>`
+      : ' No conflicts expected.')
+    if (await confirmIt(`Merge ${d.name} into ${cur}?`, body, 'Merge')) return act('merge', { name: d.name }, `Merged ${d.name} into ${cur}.`, undoMove('keep'))
+  },
+  rebase: async d => {
+    const cur = S.st.branch
+    if (await confirmIt(`Rebase ${cur} onto ${d.name}?`, `Replays your commits from <b>${esc(cur)}</b> on top of the latest <b>${esc(d.name)}</b>. Tidier than a merge, but avoid it on branches other people already use.`, 'Rebase'))
+      return act('rebase', { name: d.name }, `Rebased ${cur} onto ${d.name}.`, undoMove('keep'))
+  },
+  rename: async d => {
+    const raw = await ask({ title: `Rename ${d.name}`, input: 'New name', value: d.name, buttons: [['Rename', true]] })
+    const name = raw && named(raw, 'branch')
+    if (name && name !== d.name) return act('rename_branch', { old: d.name, new: name }, `Renamed to ${name}.`, () => () => act('rename_branch', { old: name, new: d.name }, 'Undone.'))
+  },
+  deleteBranch: async d => {
+    const main = MAIN.includes(d.name) ? '<p><b>This is one of your main branches.</b> Most projects need it. Only delete it if you’re sure.</p>' : ''
+    if (!await confirmIt(`Delete ${d.name}?`, `You can bring it back any time from the Recycle bin.${main}`, 'Delete branch', 'danger-btn')) return
+    const r = await deleteBranch(d.name)
+    if (r) toast(`Deleted ${d.name}. It’s in the Recycle bin.`, 'ok', null, undoBin('branch')(r))
+    return refresh()
+  },
+  deleteMerged: async () => {
+    const tidy = S.st.merged.filter(b => b !== S.st.branch && !MAIN.includes(b))
+    if (!await confirmIt(`Delete ${plural(tidy.length, 'merged branch', 'merged branches')}?`, `Everything on them is already in <b>${esc(S.st.branch)}</b>.<ul>${tidy.map(b => `<li>${esc(b)}</li>`).join('')}</ul>They go to the Recycle bin.`, 'Delete them', 'danger-btn')) return
+    const gone = await deleteMany(tidy)
+    toast(`Tidied up ${plural(gone.length, 'branch', 'branches')}.`, 'ok', null, undoAll('branch', gone))
+    return refresh()
+  },
+  branchHistory: d => { S.tab = 'history'; S.logRef = d.name; S.commit = null; return refresh() },
+  bView: d => { S.bview = d.view; S.bsel.clear(); render() },
+  bToggle: (d, el) => { if (el.checked) S.bsel.add(d.name); else S.bsel.delete(d.name); render() },
+  bAll: (d, el) => { const m = branchModel(S.st); if (el.checked) m.pick.forEach(b => S.bsel.add(b.name)); else S.bsel.clear(); render() },
+  bPick: d => { const m = branchModel(S.st); S.bsel = new Set(m.pick.filter(d.which === 'merged' ? m.merged : m.isOld).map(b => b.name)); render() },
+  bClear: () => { S.bsel.clear(); render() },
+  bSort: (d, el) => { S.bsort = el.value; render() },
+  bulkDelete: async () => {
+    const names = [...S.bsel], mains = names.filter(n => MAIN.includes(n))
+    if (!await confirmIt(`Delete ${plural(names.length, 'branch', 'branches')}?`, `<ul>${names.map(n => `<li>${esc(n)}</li>`).join('')}</ul>
+      ${mains.length ? `<p><b>${esc(listJoin(mains))} ${mains.length === 1 ? 'is a main branch' : 'are main branches'}.</b> Most projects need ${mains.length === 1 ? 'it' : 'them'}.</p>` : ''}
+      <p>They go to the Recycle bin, so you can bring them back.</p>`, 'Delete', 'danger-btn')) return
+    const gone = await deleteMany(names)
+    S.bsel.clear()
+    if (gone.length) toast(`Deleted ${plural(gone.length, 'branch', 'branches')}. They’re in the Recycle bin.`, 'ok', null, undoAll('branch', gone))
+    return refresh()
+  },
+  bulkPublish: () => { const names = [...S.bsel]; S.bsel.clear(); return act('publish_branches', { names }, `Uploaded ${plural(names.length, 'branch', 'branches')} to ${remoteHost(S.st)}.`) },
+  publishOne: d => act('publish_branches', { names: [d.name] }, `Uploaded ${d.name} to ${remoteHost(S.st)}.`),
+  bulkTrack: () => { const names = [...S.bsel]; S.bsel.clear(); return act('track_branches', { names }, `Made local copies of ${plural(names.length, 'branch', 'branches')}.`) },
+  bulkDeleteRemote: () => deleteRemote([...S.bsel]),
+  deleteRemote: d => deleteRemote([d.name]),
+
+  // history
+  logRef: (d, el) => { S.logRef = el.value; S.commit = null; S.logLimit = 100; return refresh() },
+  search: (d, el) => { S.search = el.value.trim(); S.logLimit = 100; return refresh() },
+  moreLog: () => { S.logLimit += 100; return refresh() },
+  showCommit: async d => { S.commit = await api('commit_info', { repo: S.repo, sha: d.sha }); render() },
+  showLost: async d => { S.commit = await api('commit_info', { repo: S.repo, sha: d.sha }); S.tab = 'history'; S.logRef = '--all'; return refresh() },
+  revert: async d => {
+    if (await confirmIt('Undo this commit?', 'Git adds a new commit that reverses it. Your history stays intact, so this is safe even if you already uploaded it.', 'Undo commit'))
+      return act('revert', { sha: d.sha }, 'Done. A new commit reverses it.', undoMove('keep'))
+  },
+  cherryPick: async d => {
+    if (await confirmIt(`Copy this commit to ${S.st.branch}?`, 'Its changes are applied on your branch as a new commit.', 'Copy commit'))
+      return act('cherry_pick', { sha: d.sha }, `Copied to ${S.st.branch}.`, undoMove('keep'))
+  },
+  resetTo: async d => {
+    const s = S.st, c = await ask({ title: `Go back to “${d.subject}”?`,
+      body: `<b>${esc(s.detached ? 'You' : s.branch)}</b> moves back to this commit. Later commits leave the branch, but Undo history can bring them back.${s.upstream ? `<p>If those commits are already on ${esc(remoteHost(s))}, the next Sync brings them straight back. To undo shared work, use <b>Undo this commit</b> instead.</p>` : ''}`,
+      buttons: [['Throw away later changes', 'hard', 'danger'], ['Keep the changes in my files', 'mixed', 'primary']] })
+    if (c) return act('reset_to', { sha: d.sha, mode: c }, r => r?.backup ? 'Went back. Your uncommitted work was backed up to Stashes.' : 'Went back to that commit.', undoMove(c === 'mixed' ? 'mixed' : 'keep'))
+  },
+  checkoutCommit: async d => {
+    const s = S.st, back = !s.detached && (() => () => act('switch', { name: s.branch }, `Back on ${s.branch}.`))
+    if (await confirmIt('Look around at this commit?', 'Your files change to how they were back then, so you can test or browse. You’re off any branch until you switch back.', 'Look around'))
+      return act('checkout_commit', { sha: d.sha }, 'You’re now looking at that commit. Switch to a branch to get back.', back)
+  },
+  restoreFile: async d => {
+    if (await confirmIt(`Restore ${d.path}?`, `${d.deleted ? 'Brings back the file as it was just before this commit deleted it.' : 'Puts this commit’s version of the file in your folder.'} Unsaved edits to it are backed up to Stashes first.`, 'Restore file'))
+      return act('restore_file', { sha: d.sha, path: d.path, deleted: !!d.deleted }, `Restored ${d.path}. Commit it to keep it.`)
+  },
+  newTag: async d => {
+    const raw = await ask({ title: 'New tag', body: 'Usually a version number.', input: 'e.g. v1.0.0', buttons: [['Create tag', true]] })
+    const name = raw && named(raw, 'tag')
+    if (name) return act('create_tag', { name, sha: d.sha || null }, `Tagged ${name}.`)
+  },
+  deleteTag: async d => {
+    if (await confirmIt(`Delete tag ${d.name}?`, 'It goes to the Recycle bin. If it was uploaded, it stays on the server.', 'Delete tag', 'danger-btn'))
+      return act('delete_tag', { name: d.name }, `Deleted ${d.name}.`, undoBin('tag'))
+  },
+
+  // stashes
+  stashApply: d => act('stash_apply', { ref: d.ref, pop: !!d.pop }, d.pop ? 'Brought your changes back.' : 'Applied a copy. The stash is still on the shelf.'),
+  stashView: async d => {
+    if (S.stashView === d.ref) S.stashView = null
+    else { S.stashDiff = await api('stash_diff', { repo: S.repo, ref: d.ref }); S.stashView = d.ref }
+    render()
+  },
+  stashDrop: async d => {
+    if (await confirmIt('Delete this stash?', 'It goes to the Recycle bin, so you can still get it back.', 'Delete stash', 'danger-btn')) {
+      S.stashView = null
+      return act('stash_drop', { ref: d.ref }, 'Deleted the stash.', undoBin('stash'))
+    }
+  },
+
+  // recycle bin, undo history
+  restore: async d => {
+    let name = d.name
+    if (d.kind === 'branch') {
+      name = named(await ask({ title: 'Restore branch', body: 'Choose a name for it.', input: 'Branch name', value: d.name, buttons: [['Restore', true]] }), 'branch')
+      if (!name) return
+    }
+    const label = d.kind === 'stash' ? 'the stash' : d.kind === 'remote' ? `${shortName(name)} on ${remoteHost(S.st)}` : name
+    if (await act('restore', { kind: d.kind, sha: d.sha, name: name || '', ref: d.ref || '' }, `Restored ${label}.`)) { S.lost = null; render() }
+  },
+  forget: async d => {
+    if (await confirmIt('Remove this forever?', 'Git will clean it up for good the next time it tidies itself. This can’t be undone.', 'Remove forever', 'danger-btn')) return act('forget', { ref: d.ref })
+  },
+  emptyBin: async () => {
+    if (await confirmIt('Empty the recycle bin?', 'Everything in it can be cleaned up by Git for good. This can’t be undone.', 'Empty bin', 'danger-btn')) return act('forget', {}, 'Recycle bin emptied.')
+  },
+  lostScan: async () => { S.lost = await api('lost', { repo: S.repo }); render() },
+  undoTo: async d => {
+    if (await confirmIt('Go back to this moment?', `Puts things back to: <b>${esc(d.label)}</b>. Uncommitted work is backed up to Stashes first, and you can undo this too.`, 'Go back'))
+      return act('reset_to', { sha: d.sha, mode: 'hard' }, r => r?.backup ? 'Went back. Your uncommitted work was backed up to Stashes.' : 'Went back.', undoMove('keep'))
+  },
+
+  // command line, settings
+  runCmd: async d => {
+    const cmd = (d.cmd ?? val('cmd')).trim()
+    if (!cmd) return
+    S.f.cmd = cmd
+    try { const r = await api('raw', { repo: S.repo, command: cmd }); S.cmdOut = `$ git ${cmd.replace(/^git\s+/, '')}\n${r.out || '(no output)'}` } catch (e) { S.cmdOut = e.error }
+    return refresh()
+  },
+  saveWho: () => {
+    const email = val('whoEmail', S.st.who.email)
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast('That email doesn’t look right.', 'warn')
+    return act('set_identity', { name: val('whoName', S.st.who.name), email }, 'Saved. Your commits will carry this name.')
+  },
+  addRemote: async () => {
+    const url = val('remUrl').trim(), name = S.adv ? val('remName', hasRemote(S.st) ? '' : 'origin').trim() : 'origin'
+    if (!/^(https?:\/\/|git@|ssh:\/\/|file:\/\/|\/|~)/.test(url)) return toast('That doesn’t look like a repository address. Copy it from GitHub: it starts with https:// or git@', 'warn')
+    if (!await act('add_remote', { name, url }, `Connected to ${hostName(url)}.`)) return
+    delete S.f.remName; delete S.f.remUrl
+    if (S.st.has_commits && !S.st.detached) return ACT.sync()  // upload straight away: one less thing to remember
+    render()
+  },
+  removeRemote: async d => {
+    if (await confirmIt(`Disconnect from ${d.name}?`, 'Only the link is removed. Nothing on the server is deleted, and you can connect again any time.', 'Disconnect'))
+      return act('remove_remote', { name: d.name }, 'Disconnected.')
+  },
+
+  // conflicts
+  finish: async d => {
+    if (d.action === 'abort' && !await confirmIt('Cancel and go back?', 'Everything goes back to exactly how it was before you started. Choices you made here are dropped.', 'Cancel it', 'danger-btn')) return
+    return act('finish', { kind: d.kind, action: d.action }, { continue: 'Done. The result is saved.', abort: 'Cancelled. Everything is back how it was.', skip: 'Skipped that commit.' }[d.action],
+      d.kind === 'merge' && d.action === 'continue' ? undoMove('keep') : null)
+  },
+  pickConflict: async d => { S.cfPath = d.path; await loadTab().catch(showError); render() },
+  takeSide: async d => {
+    const [mine, theirs] = sides(S.st)
+    if (await confirmIt(`Use ${(d.side === 'ours' ? mine : theirs).toLowerCase()} for ${d.path}?`, `The other side’s changes to this file are dropped.`, 'Use it'))
+      return act('take', { path: d.path, side: d.side }, `Fixed ${d.path}.`)
+  },
+  cfPick: d => {
+    decide(S.cf, S.cf.segs[d.i], d.pick)
+    render()
+  },
+  cfUndo: d => { delete S.cf.segs[d.i].res; render() },
+  cfApplyAll: () => { applySafe(S.cf); render() },
+  cfFixFile: () => { applySafe(S.cf); return ACT.saveConflict() },
+  fixAllEasy: async () => {
+    const files = S.st.files.filter(f => f.conflict && f.x !== 'D' && f.y !== 'D'), ready = []
+    for (const f of files) {
+      const cf = await loadConflict(f)
+      if (cf.segs && applySafe(cf)) ready.push({ path: f.path, text: composed(cf, false) })
+    }
+    if (!ready.length) return toast('Each remaining file has at least one clash that needs your decision.', 'warn')
+    if (!await confirmIt(`Fix ${plural(ready.length, 'file')} automatically?`, `<ul>${ready.map(r => `<li><code>${esc(r.path)}</code></li>`).join('')}</ul>
+      <p>In these files every clash has a choice that loses nothing: one side already has everything, or each side only added lines. Until you finish, “Cancel and go back” still undoes the whole merge.</p>`, 'Fix them')) return
+    for (const r of ready) await api('save_file', { repo: S.repo, path: r.path, text: r.text })
+    toast(`Fixed ${plural(ready.length, 'file')}.${files.length > ready.length ? ` ${plural(files.length - ready.length, 'file')} still need${files.length - ready.length === 1 ? 's' : ''} you.` : ''}`)
+    S.cf = null
+    return refresh()
+  },
+  howToChoose: () => ask({ title: 'How do I choose?', body: HOW_TO_CHOOSE, buttons: [['Got it', true]] }),
+  cfEdit: d => { const x = S.cf.segs[d.i]; x.draft = x.res ?? joinLines(x.ours, x.theirs, eolOf(S.cf)); x.editing = true; render(); $('#cfe' + d.i)?.focus() },
+  cfDone: d => {
+    const x = S.cf.segs[d.i], eol = eolOf(S.cf)
+    let v = x.draft.replace(/\r?\n/g, eol)
+    if (v && !v.endsWith('\n') && (x.ours + x.theirs).endsWith('\n')) v += eol
+    Object.assign(x, { res: v, choice: 'Edited by hand', editing: false })
+    render()
+  },
+  saveConflict: () => S.cf.segs.some(x => x.text === undefined && (x.res === undefined || x.editing))  // never save with a clash undecided
+    ? toast('Decide every clash first.', 'warn') : act('save_file', { path: S.cf.path, text: composed(S.cf, false) }, `Fixed ${S.cf.path}.`),
+  manualConflict: () => { S.cf.manual = composed(S.cf, true); render() },
+  cfBack: () => { delete S.cf.manual; render() },
+  saveManual: async () => {
+    const text = (S.cf.manual ?? S.cf.raw).replace(/\r?\n/g, eolOf(S.cf))
+    if (MARK.test(text) && !await confirmIt('Conflict markers are still in the file', 'Lines starting with <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code>, <code>=======</code> or <code>&gt;&gt;&gt;&gt;&gt;&gt;&gt;</code> are still there. Save anyway?', 'Save anyway')) return
+    return act('save_file', { path: S.cf.path, text }, `Fixed ${S.cf.path}.`)
+  },
+  markResolved: d => act('mark_resolved', { path: d.path }, `Marked ${d.path} as fixed.`),
+  reloadConflict: () => { S.cf = null; return refresh() },
+}
+
+// ---------- wiring ----------
+// One action at a time: a double-click or an impatient second click can't run something twice.
+// Looking around (tabs, picking a file, ticking branches, conflict choices) is always allowed.
+let acting = false
+const FREE = new Set(['noop', 'diffMode', 'hideTip', 'keepRemote', 'bRemote', 'cfApplyAll', 'howToChoose', 'tab', 'tips', 'select', 'showCommit', 'pickConflict', 'cfPick', 'cfUndo', 'cfEdit', 'cfDone', 'cfBack', 'manualConflict',
+  'useSuggestion', 'amendToggle', 'help', 'logRef', 'search', 'moreLog', 'stashView', 'toggleAdv', 'refresh', 'branchHistory', 'openRepo',
+  'bView', 'bToggle', 'bAll', 'bPick', 'bClear', 'bSort'])
+async function guarded(fn) {
+  if (acting) return
+  acting = true
+  try { await fn() } catch (e) { showError(e) } finally { acting = false }
+}
+const run = (name, el) => FREE.has(name) ? Promise.resolve().then(() => ACT[name](el.dataset, el)).catch(showError) : guarded(() => ACT[name](el.dataset, el))
+const closePops = except => document.querySelectorAll('details.pop[open]').forEach(p => { if (p !== except) p.open = false })
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]'), pop = e.target.closest('details.pop')
+  closePops(el ? null : pop)  // clicking an item in a menu closes it; clicking inside one (like its search box) keeps it open
+  if (el && !el.disabled) run(el.dataset.act, el)
+})
+document.addEventListener('change', e => { if (e.target.dataset.change) run(e.target.dataset.change, e.target) })
+document.addEventListener('input', e => {
+  const t = e.target
+  if (t.id === 'repoFilter') { S.filter = t.value; renderRepoList() }
+  else if (t.id === 'bpq') $('#bplist').innerHTML = pickerList(S.st, t.value)
+  else if (t.id === 'bq') { S.bq = t.value; render() }
+  else if (t.id === 'cfm') S.cf.manual = t.value
+  else if (t.dataset.cf) S.cf.segs[t.dataset.cf].draft = t.value
+  else if (t.id && main.contains(t)) S.f[t.id] = t.value
+})
+document.addEventListener('toggle', e => { if (e.target.matches?.('details.pop[open]')) e.target.querySelector('input[type=search]')?.focus() }, true)
+document.addEventListener('keydown', e => {
+  const t = e.target
+  if (e.key === 'Escape' && document.querySelector('details.pop[open]')) closePops()
+  else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && t.id === 'msg') { e.preventDefault(); run('commit', t) }
+  else if (e.key === 'Enter' && t.dataset.enter) { e.preventDefault(); run(t.dataset.enter, t) }
+  else if (e.key === 'Enter' && t.id === 'bpq') { e.preventDefault(); $('#bplist [data-act="switch"]')?.click() }
+})
+window.addEventListener('focus', () => { if (!dlg.open && !busyN && !document.querySelector('details.pop[open]')) refresh() }) // pick up edits made in your code editor
+setInterval(() => { if (!S.closed) api('ping', {}, true).catch(() => {}) }, 30000) // tells KrazyGit this window is still open
+document.querySelectorAll('[data-ic]').forEach(el => el.insertAdjacentHTML('afterbegin', ic(el.dataset.ic)))
+
+;(async () => {
+  try { S.repos = await api('repos') } catch (e) { showError(e) }
+  const last = store('repo')
+  S.repo = S.repos.some(r => r.path === last) ? last : S.repos[0]?.path || null
+  refresh()
+})()
+</script>
+</body>
+</html>
