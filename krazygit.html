@@ -245,6 +245,24 @@ table.dt { width: 100%; border-collapse: collapse; table-layout: fixed; font: 12
 .detail h4 { font-size: 13px; color: var(--muted); margin: 18px 0 8px }
 
 /* forms */
+.helpq { width: 24px; height: 24px; margin-left: 4px; vertical-align: -3px; color: var(--faint) }
+.helpq:hover { color: var(--accent) }
+.glist .gsec { cursor: default; font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: .04em; color: var(--faint); padding: 12px 10px 4px }
+.glist .gsec:hover { background: none }
+.glist li:not(.gsec) { padding: 6px 10px }
+.gtext { max-width: 760px; line-height: 1.6 }
+.gtext h3 { font-size: 20px; font-weight: 650; margin: 2px 0 10px }
+.gtext h4 { font-size: 15px; margin: 18px 0 6px }
+.gtext p, .gtext ul, .gtext ol, .gtext pre { margin: 0 0 12px }
+.gtext ul, .gtext ol { padding-left: 22px }
+.gtext li { margin: 4px 0 }
+.gtext a { color: var(--accent) }
+.gtext code { background: var(--hover); padding: 1px 5px; border-radius: 4px }
+.gtext pre { font: 12.5px/1.5 var(--mono); background: var(--hover); padding: 10px 12px; border-radius: 8px; overflow: auto }
+.tipbox { display: flex; gap: 10px; align-items: flex-start; background: var(--accent-soft); border: 1px solid var(--accent-line); border-radius: 8px; padding: 10px 12px; margin: 0 0 12px }
+.tipbox .ic { color: var(--accent); flex: none; margin-top: 4px }
+.tipbox p { margin: 0 }
+.gnext { margin-top: 24px }
 .card { border: 1px solid var(--rule); border-radius: 10px; padding: 16px 18px; background: var(--panel); margin-bottom: 14px }
 .card h3 { font-size: 15px; font-weight: 650; display: flex; align-items: center; gap: 8px; margin-bottom: 4px }
 .card h3 .ic { color: var(--muted) }
@@ -345,7 +363,7 @@ body.busy { cursor: progress }
       <p>The exact commands KrazyGit ran for you.</p>
       <ol id="cmds"></ol>
     </details>
-    <button data-act="help" data-ic="help">How Git works</button>
+    <button data-act="guide" data-ic="book">Guide</button>
     <button data-act="quit" data-ic="power">Quit KrazyGit</button>
   </div>
 </aside>
@@ -388,7 +406,7 @@ const MARK = /^(<{7}|={7}|>{7})( |\r?$)/m
 const JUNK = /(^|\/)(node_modules|\.DS_Store|\.env|vendor|dist|__pycache__|\.idea|\.vscode|\.venv|venv)(\/|$)/
 const S = { repos: [], repo: null, filter: '', adv: store('adv') === '1', closed: null, tipsOpen: false, diffMode: store('diffMode') || 'split' }
 const fresh = () => Object.assign(S, { st: null, err: null, tab: 'branches', f: {}, amend: false, sel: null, diff: '', log: [], logRef: 'HEAD',
-  logLimit: 100, search: '', commit: null, bin: null, lost: null, reflog: null, stashView: null, stashDiff: '', cf: null, cfPath: null, cmdOut: '', fetched: 0,
+  logLimit: 100, search: '', smode: 'message', rtags: null, cmp: null, commit: null, bin: null, lost: null, reflog: null, stashView: null, stashDiff: '', cf: null, cfPath: null, cmdOut: '', fetched: 0,
   bview: 'local', bq: '', bsort: 'recent', bremote: '', bsel: new Set() })
 fresh()
 const val = (id, dflt = '') => S.f[id] ?? dflt
@@ -430,6 +448,7 @@ const ICONS = {
   copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
   rewind: '<path d="M12 6a2 2 0 0 0-3.414-1.414l-6 6a2 2 0 0 0 0 2.828l6 6A2 2 0 0 0 12 18z"/><path d="M22 6a2 2 0 0 0-3.414-1.414l-6 6a2 2 0 0 0 0 2.828l6 6A2 2 0 0 0 22 18z"/>',
   bulb: '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
+  book: '<path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>',
   shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
 }
 const ic = (n, size = 16) => `<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`
@@ -446,7 +465,8 @@ const menu = items => `<details class="pop"><summary class="btnlike icon ghost" 
 let busyN = 0, workingTimer
 const WORKING = { sync: 'Syncing with the server…', fetch: 'Checking the server…', lost: 'Searching for lost work…', merge: 'Merging…', rebase: 'Rebasing…',
   commit: 'Committing…', switch: 'Switching branch…', add_repo: 'Looking inside that folder…', merge_preview: 'Checking for clashes…', raw: 'Running…', sync_branches: 'Syncing branches…',
-  publish_branches: 'Uploading…', delete_remote_branches: 'Deleting from the server…', track_branches: 'Making copies…' }
+  publish_branches: 'Uploading…', delete_remote_branches: 'Deleting from the server…', track_branches: 'Making copies…', rename_branch: 'Renaming…',
+  upload_tags: 'Uploading tags…', delete_tag: 'Deleting the tag…', create_branch: 'Creating the branch…', compare: 'Comparing…', log: 'Searching…' }
 function busy(on, op) {
   busyN += on ? 1 : -1
   document.body.classList.toggle('busy', busyN > 0)
@@ -479,7 +499,7 @@ async function act(op, args = {}, done, undo) {
   let d
   try { d = await api(op, { repo: S.repo, ...args }) } catch (e) { showError(e); await refresh(); return null }
   if (d?.conflicts) toast('Some changes clash. Choose what to keep in Conflicts.', 'warn')
-  else if (done) toast(typeof done === 'function' ? done(d) : done, 'ok', null, undo?.(d))
+  else if (done) toast(typeof done === 'function' ? done(d) : done, 'ok', null, undo?.(d), d?.pr_url)
   await refresh()
   return d ?? true
 }
@@ -519,7 +539,11 @@ async function loadTab() {
     S.sel = f ? f.path : null
     S.diff = f ? await api('diff', { ...r, path: f.path, orig: f.orig, untracked: f.x === '?' }) : ''
   }
-  if (S.tab === 'history') S.log = await api('log', { ...r, ref: S.logRef, search: S.search, limit: S.logLimit })
+  if (S.tab === 'history') S.log = await api('log', { ...r, ref: S.logRef, search: S.search, mode: S.smode, limit: S.logLimit })
+  if (S.tab === 'tags' && hasRemote(s)) {  // in the background: a slow or offline server mustn't hold up the page
+    const repo = S.repo
+    api('remote_tags', r, true).then(t => { if (S.repo === repo && S.tab === 'tags') { S.rtags = t; render() } }).catch(() => {})
+  }
   if (S.tab === 'bin') S.bin = await api('bin', r)
   if (S.tab === 'undo') S.reflog = await api('reflog', r)
   if (S.tab === 'stashes' && S.stashView) {
@@ -534,15 +558,16 @@ async function loadTab() {
 }
 
 // ---------- feedback ----------
-function toast(text, tone = 'ok', detail = null, undo = null) {
+function toast(text, tone = 'ok', detail = null, undo = null, link = null) {
   const el = document.createElement('div')
   el.className = 'toast ' + tone
   el.innerHTML = `<div>${esc(text)}${detail ? `<details><summary>What Git said</summary><pre>${esc(detail)}</pre></details>` : ''}</div>
+    ${link ? `<a class="btnlike undo" href="${esc(link)}" target="_blank" rel="noopener">${ic('arrow')}Open pull request</a>` : ''}
     ${undo ? `<button class="undo">${ic('undo')}Undo</button>` : ''}<button class="x" aria-label="Close">×</button>`
   el.querySelector('.x').onclick = () => el.remove()
   if (undo) el.querySelector('.undo').onclick = () => { el.remove(); guarded(undo) }
   $('#toasts').append(el)
-  if (tone !== 'err') setTimeout(() => el.remove(), undo || tone === 'warn' ? 10000 : 5000)
+  if (tone !== 'err') setTimeout(() => el.remove(), link ? 20000 : undo || tone === 'warn' ? 10000 : 5000)
 }
 function showError(e) {
   const msg = e?.error ?? String(e)
@@ -555,6 +580,7 @@ function logCmds(cmds, ok) {
 }
 
 // A small modal. Returns the chosen button's value (or the typed text for prompts), null when cancelled.
+// A prompt with several buttons returns { text, choice }.
 function ask({ title, body = '', input, value = '', buttons = [['OK', true]] }) {
   return new Promise(resolve => {
     dlg.innerHTML = `<form><h2>${esc(title)}</h2>${body ? `<div class="body">${body}</div>` : ''}
@@ -566,8 +592,11 @@ function ask({ title, body = '', input, value = '', buttons = [['OK', true]] }) 
     const answer = v => { if (answered) return; answered = true; if (dlg.open) dlg.close(); resolve(v) }
     dlg.querySelector('form').onsubmit = e => {
       e.preventDefault()
-      answer(input !== undefined ? dlg.querySelector('#dlgIn').value.trim() : buttons[+(e.submitter?.value ?? 0)][1])
+      const choice = buttons[+(e.submitter?.value ?? buttons.length - 1)][1], text = input !== undefined && dlg.querySelector('#dlgIn').value.trim()
+      answer(input === undefined ? choice : buttons.length > 1 ? { text, choice } : text)
     }
+    const main = buttons.findIndex(b => /primary/.test(b[2] ?? '')), pick = main < 0 ? buttons.length - 1 : main
+    dlg.querySelector('#dlgIn')?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); dlg.querySelector('form').requestSubmit(dlg.querySelector(`.btns [value="${pick}"]`)) } })
     dlg.querySelector('[data-close]').onclick = () => answer(null)
     dlg.oncancel = e => { e.preventDefault(); answer(null) }  // Escape key
     dlg.onclose = () => answer(null)
@@ -632,11 +661,12 @@ function view() {
   if (S.closed) return `<div id="content"><div class="empty" style="padding-top:14vh">${ic('power', 36)}
     <h2 style="color:var(--ink)">${S.closed === 'quit' ? 'KrazyGit has quit' : 'KrazyGit is closed'}</h2>
     <p>You can close this window. Open KrazyGit again whenever you need it.</p></div></div>`
+  if (S.tab === 'guide' && GUIDE) return `<div id="content">${guideView()}</div>`
   if (!S.repo) return `<div id="content"><div style="max-width:760px;margin:8vh auto 0">
     <div class="next" style="padding:22px"><div class="tilebig">${ic('folder', 22)}</div><div class="t"><b>Add your first project</b><span>Pick a code folder. KrazyGit finds the Git projects inside, or starts tracking it for you.</span></div>
       <div class="acts">${btn('Add a project folder', 'addRepo', {}, 'primary big', false, 'plus')}</div></div>
     <p style="margin:10px 4px 0" class="hint">Prefer typing? ${btn('Type a folder path', 'addPath', {}, 'link')}</p>
-    <div class="vhead" style="margin-top:40px"><h2>Git in one minute</h2></div><div class="help">${HELP}</div></div></div>`
+    <div class="vhead" style="margin-top:40px"><h2>Git in one minute</h2>${btn('Read the guide', 'guide', { id: 'git-basics' }, 'ghost', false, 'book')}</div><div class="help">${HELP}</div></div></div>`
   if (S.err) return `<div id="content"><div class="empty" style="padding-top:12vh">${ic('alert', 36)}<h2 style="color:var(--ink)">${esc(S.repo.split('/').pop())}</h2>
     <p>${esc(S.err.hint || S.err.error)}</p><div class="btns">${btn('Try again', 'refresh', {}, 'primary', false, 'refresh')}${btn('Remove from list', 'forgetRepo', {}, 'danger')}</div></div></div>`
   if (!S.st) return ''
@@ -727,6 +757,7 @@ function suggestions(s) {
     const m = f.x === '?' && f.path.match(JUNK)
     if (m) { add('tip', 'eye', `Leave <code>${esc(f.path)}</code> out of Git`, 'Generated files and secrets usually don’t belong in Git.', ['Ignore it', 'ignore', { pattern: m[2] + (m[3] === '/' ? '/' : '') }]); break }
   }
+  if (s.ignored_tracked && !s.doing) add('tip', 'eye', `Stop tracking ${plural(s.ignored_tracked, 'ignored file')}`, 'They’re in .gitignore, but were committed before, so Git still tracks them.', ['Stop tracking them', 'untrack'])
   if (!hasRemote(s) && s.has_commits) add('tip', 'cloud', 'Back up this project online', 'Right now it only lives on this computer.', ['Back up online', 'tab', { tab: 'settings' }])
   return out
 }
@@ -819,7 +850,7 @@ function suggestMsg(files) {
 function changesView(s) {
   const files = s.files.filter(f => !f.conflict)
   if (pushed(s)) S.amend = false  // rewriting a commit that's already uploaded causes trouble
-  const head = `<div class="vhead ${TABS.changes.nudge && nextStep(s) ? '' : 'first'}"><h2>Changes</h2>${files.length ? btn('Stash', 'stashAll', {}, 'ghost', false, 'box', 'Put these changes aside for later')
+  const head = `<div class="vhead ${TABS.changes.nudge && nextStep(s) ? '' : 'first'}"><h2>Changes${help('changes')}</h2>${files.length ? btn('Stash', 'stashAll', {}, 'ghost', false, 'box', 'Put these changes aside for later')
     + (s.has_commits ? btn('Discard all', 'discardAll', {}, 'ghost danger', false, 'trash') : '') : ''}</div>`
   if (!files.length) return head + `<div class="list"><div class="empty">${ic('checkc', 30)}<b>No changes</b><p>Edit files in your code editor and they’ll show up here.</p>
     ${s.has_commits ? `<div class="btns">${pushed(s) ? '' : btn('Edit last message', 'editMessage', {}, 'ghost', false, 'edit')}${btn('Undo last commit', 'undoCommit', {}, 'ghost', false, 'undo')}</div>` : ''}</div></div>`
@@ -880,10 +911,13 @@ function branchModel(s) {
   return { remote, paused, all, list, pick: list.filter(selectable), selectable, merged, isOld, needsSync }
 }
 function branchesView(s) {
+  if (S.cmp) return compareView(s)
+  const prable = b => s.team_main && b.name !== shortName(s.team_main) && !s.download_only.includes(b.name)
+  const prHost = b => /github\.com|gitlab|bitbucket\.org/.test(s.remotes[upRemote({ upstream: b.upstream })] || '')
   const m = branchModel(s), host = remoteHost(s), locals = new Set(s.branches.map(b => b.name)), multi = Object.keys(s.remotes).length > 1
   const remoteShort = new Set(s.remote_branches.map(b => shortName(b.name))), onServer = b => b.upstream || remoteShort.has(b.name)
   const nMerged = m.pick.filter(m.merged).length, nOld = m.pick.filter(m.isOld).length, nSync = m.pick.filter(m.needsSync).length, selVisible = m.pick.filter(b => S.bsel.has(b.name)).length
-  const head = `<div class="vhead"><h2>Branches</h2>${m.remote ? btn('Check for new branches', 'fetchNow', {}, 'ghost', false, 'refresh')
+  const head = `<div class="vhead"><h2>Branches${help('branches')}</h2>${m.remote ? btn('Check for new branches', 'fetchNow', {}, 'ghost', false, 'refresh')
     : m.paused ? '' : btn('New branch', 'newBranch', {}, 'primary', false, 'plus')}</div>`
   const seg = `<div class="seg" role="tablist" aria-label="Where the branches are">
     <button class="${m.remote ? '' : 'on'}" data-act="bView" data-view="local" role="tab" aria-selected="${!m.remote}">${ic('laptop')}On this computer <span class="n">${s.branches.length}</span></button>
@@ -916,6 +950,7 @@ function branchesView(s) {
           btn('See its history', 'branchHistory', { name: b.name }, '', false, 'clock'),
           !cur && b.upstream ? btn('Sync without switching', 'syncBranch', { name: b.name }, '', false, 'sync') : '',
           !onServer(b) && hasRemote(s) ? btn(`Upload to ${host}`, 'publishOne', { name: b.name }, '', false, 'up') : '',
+          prable(b) ? btn('Preview pull request', 'prPreview', { name: b.name }, '', false, 'eye') + (prHost(b) ? btn('Open pull request', 'prOpen', { name: b.name }, '', false, 'arrow') : '') : '',
           !cur && !s.detached && S.adv ? btn(`Rebase ${s.branch} onto this`, 'rebase', { name: b.name }, '', false, 'branch') : '',
           hasRemote(s) ? (s.download_only.includes(b.name) ? btn('Allow uploads', 'toggleDl', { name: b.name }, '', false, 'up')
             : btn('Download only (never upload)', 'toggleDl', { name: b.name, on: '1' }, '', false, 'down')) : '',
@@ -931,6 +966,7 @@ function branchesView(s) {
       <div class="main"><div class="name">${esc(short)}${tags}</div><div class="meta">${esc(b.subject)} <span class="faint">${esc(b.when)}</span></div></div>
       ${m.paused ? '' : `<div class="acts">${have && short === s.branch ? '' : btn(have ? 'Switch' : 'Get a copy', 'switch', { name: b.name, remote: '1' }, '', false, have ? 'arrow' : 'down',
         have ? '' : 'Make your own copy of this branch and switch to it')}
+        ${b.name === s.upstream || s.detached || dlOnly(s) ? '' : btn('Merge', 'merge', { name: b.name }, 'ghost', false, 'merge', `Bring its commits into ${s.branch}`)}
         ${menu([btn('See its history', 'branchHistory', { name: b.name }, '', false, 'clock'), '<hr>' + btn(`Delete from ${host}`, 'deleteRemote', { name: b.name }, 'danger', false, 'trash')])}</div>`}</div>`
   }
   const lhead = `<div class="lhead"><input type="checkbox" data-act="bAll" ${selVisible && selVisible === m.pick.length ? 'checked' : ''} ${selVisible && selVisible < m.pick.length ? 'data-mixed' : ''}
@@ -943,6 +979,17 @@ function branchesView(s) {
   return head + filters + banner + `<div class="list">${lhead}${rows}</div>${bulk}`
 }
 
+// What a pull request from a branch would show: its commits, and everything they change together.
+function compareView(s) {
+  const c = S.cmp, d = c.data, up = s.branches.find(b => b.name === c.name)?.upstream, site = /github\.com|gitlab|bitbucket\.org/.test(s.remotes[upRemote({ upstream: up })] || '')
+  return `<div class="vhead"><h2>${esc(c.name)} ${ic('arrow')} ${esc(shortName(c.base))}${help('pull-requests')}</h2>${btn('Back to branches', 'cmpClose', {}, 'ghost', false, 'x')}
+    ${!up ? btn(`Upload to ${remoteHost(s)} first`, 'publishOne', { name: c.name }, 'primary', false, 'up') : site ? btn('Open pull request', 'prOpen', { name: c.name }, 'primary', false, 'arrow') : ''}</div>
+  <p class="hint" style="margin:-4px 0 12px">What reviewers would see in a pull request into ${esc(c.base)}: ${plural(d.commits.length, 'commit')}, and every change they make together.</p>
+  ${d.commits.length ? `<ul class="commits list">${d.commits.map(x => `<li>${avatar(x.author)}<div class="main"><div class="subj">${esc(x.subject)}</div><div class="meta hint">${esc(x.author)} <span class="faint">${esc(x.when)}</span></div></div></li>`).join('')}</ul>
+    <h4 style="margin:16px 0 8px">Changes</h4>${diffHtml(d.patch)}`
+    : `<div class="list"><div class="empty">${ic('check', 30)}<p>${esc(c.base)} already has everything on ${esc(c.name)}.</p></div></div>`}`
+}
+
 // ---------- History ----------
 function refBadges(d) {
   const remotes = new Set(S.st.remote_branches.map(b => b.name))
@@ -953,13 +1000,14 @@ function refBadges(d) {
 const avatar = name => `<span class="avatar" style="background:${color(name)}" title="${esc(name)}">${esc(initials(name))}</span>`
 const STATUS = { A: ['New file', 'a', '+'], M: ['Changed', 'm', '•'], D: ['Deleted', 'd', '−'], R: ['Renamed', 'r', '→'], C: ['Copied', 'r', '→'], T: ['Changed', 'm', '•'] }
 function historyView(s) {
-  const head = `<div class="vhead"><h2>History</h2>`
+  const head = `<div class="vhead"><h2>History${help('history')}</h2>`
   if (!s.has_commits) return head + `</div><div class="list"><div class="empty">${ic('clock', 30)}<p>Your history starts with your first commit.</p></div></div>`
   const opts = [['HEAD', s.detached ? 'This commit and earlier' : `This branch (${s.branch})`], ['--all', 'All branches'], ...s.branches.filter(b => b.name !== s.branch).map(b => [b.name, b.name])]
   if (!opts.some(([v]) => v === S.logRef)) opts.push([S.logRef, S.logRef])
   const c = S.commit
   return head + `<select id="logRef" data-change="logRef" aria-label="Which branch">${opts.map(([v, l]) => `<option value="${esc(v)}" ${v === S.logRef ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>
-    <div class="search" style="width:260px">${ic('search', 14)}<input id="search" type="search" placeholder="Search messages, press Enter" value="${esc(S.search)}" data-enter="search" aria-label="Search commit messages"></div></div>
+    <select id="smode" data-change="sMode" aria-label="Search in"><option value="message">Messages</option><option value="code" ${S.smode === 'code' ? 'selected' : ''}>Code</option></select>
+    <div class="search" style="width:260px">${ic('search', 14)}<input id="search" type="search" placeholder="${S.smode === 'code' ? 'Code added or removed, press Enter' : 'Search messages, press Enter'}" value="${esc(S.search)}" data-enter="search" aria-label="${S.smode === 'code' ? 'Search code' : 'Search commit messages'}"></div></div>
   <div class="split"><ul class="commits pane-l" id="loglist">${S.log.length ? S.log.map(x => `<li class="${c?.sha === x.sha ? 'sel' : ''}" data-act="showCommit" data-sha="${x.sha}">
       ${avatar(x.author)}<div class="main"><div class="subj">${refBadges(x.refs)}${esc(x.subject)}</div><div class="meta hint">${esc(x.author)} <span class="faint">${esc(x.when)}</span></div></div></li>`).join('')
       : `<li><div class="empty" style="width:100%"><p>No commits match.</p></div></li>`}
@@ -994,7 +1042,7 @@ function stashLabel(m) {
 }
 function stashesView(s) {
   const n = s.files.filter(f => !f.conflict).length
-  return `<div class="vhead first"><h2>Stashes</h2>${btn(n ? `Stash ${plural(n, 'change')}` : 'Nothing to stash', 'stashAll', {}, 'primary', !n, 'box')}</div>
+  return `<div class="vhead first"><h2>Stashes${help('stashes')}</h2>${btn(n ? `Stash ${plural(n, 'change')}` : 'Nothing to stash', 'stashAll', {}, 'primary', !n, 'box')}</div>
   <p class="hint" style="margin:-4px 0 12px">A shelf for unfinished work. KrazyGit also keeps safety backups here.</p>
   ${s.stashes.length ? `<div class="list rows-wrap">${s.stashes.map(x => `<div class="row">${ic('box')}<div class="main"><div class="name">${esc(stashLabel(x.msg))}</div><div class="meta">${esc(x.when)}</div></div>
     <div class="acts">${btn('Bring back', 'stashApply', { ref: x.ref, pop: '1' }, 'primary', false, 'down')}${btn(S.stashView === x.ref ? 'Hide' : 'View', 'stashView', { ref: x.ref }, 'ghost', false, 'eye')}
@@ -1002,10 +1050,14 @@ function stashesView(s) {
     ${S.stashView === x.ref ? diffHtml(S.stashDiff) : ''}</div>`).join('')}</div>` : `<div class="list"><div class="empty">${ic('box', 30)}<p>The shelf is empty.</p></div></div>`}`
 }
 function tagsView(s) {
-  return `<div class="vhead first"><h2>Tags</h2>${btn('Tag current commit', 'newTag', {}, 'primary', !s.has_commits, 'tag')}</div>
-  <p class="hint" style="margin:-4px 0 12px">Permanent bookmarks for important commits, like releases. Sync uploads them too.</p>
-  ${s.tags.length ? `<div class="list">${s.tags.map(t => `<div class="row">${ic('tag')}<div class="main"><div class="name">${esc(t.name)}</div><div class="meta">${esc(t.subject)} <span class="faint">${esc(t.when)}</span></div></div>
-    <div class="acts">${S.adv ? btn('Look around', 'checkoutCommit', { sha: 'refs/tags/' + t.name }, 'ghost', false, 'eye') : ''}${btn('Delete', 'deleteTag', { name: t.name }, 'ghost danger', false, 'trash')}</div></div>`).join('')}</div>`
+  const host = remoteHost(s), known = hasRemote(s) && Array.isArray(S.rtags), up = t => known && S.rtags.includes(t.name), here = known ? s.tags.filter(t => !up(t)) : []
+  return `<div class="vhead first"><h2>Tags${help('tags')}</h2>${here.length > 1 ? btn(`Upload all to ${host} · ${here.length}`, 'uploadTags', { names: here.map(t => t.name).join('\n') }, 'ghost', false, 'up') : ''}
+    ${btn('Tag current commit', 'newTag', {}, 'primary', !s.has_commits, 'tag')}</div>
+  <p class="hint" style="margin:-4px 0 12px">Permanent bookmarks for important commits, like releases.${hasRemote(s) ? ' Sync uploads new ones along with your commits.' : ''}</p>
+  ${s.tags.length ? `<div class="list">${s.tags.map(t => `<div class="row">${ic('tag')}<div class="main"><div class="name">${esc(t.name)}${known ? up(t) ? `<span class="badge">${ic('cloud', 11)}On ${esc(host)}</span>` : '<span class="badge">Only on this computer</span>' : ''}</div>
+    <div class="meta">${esc(t.subject)} <span class="faint">${esc(t.when)}</span></div></div>
+    <div class="acts">${known && !up(t) ? btn('Upload', 'uploadTags', { names: t.name }, 'ghost', false, 'up', `Upload this tag to ${host}`) : ''}
+      ${S.adv ? btn('Look around', 'checkoutCommit', { sha: 'refs/tags/' + t.name }, 'ghost', false, 'eye') : ''}${btn('Delete', 'deleteTag', { name: t.name }, 'ghost danger', false, 'trash')}</div></div>`).join('')}</div>`
     : `<div class="list"><div class="empty">${ic('tag', 30)}<p>No tags yet.</p></div></div>`}`
 }
 
@@ -1017,7 +1069,7 @@ function ago(t) {
 }
 function binView(s) {
   const b = S.bin, KIND = { branch: ['Branch', 'branch'], remote: [`Branch on ${remoteHost(s)}`, 'cloud'], tag: ['Tag', 'tag'], stash: ['Stash', 'box'] }
-  return `<div class="vhead first"><h2>Recycle bin</h2>${b?.some(x => x.ref) ? btn('Empty bin', 'emptyBin', {}, 'ghost danger', false, 'trash') : ''}</div>
+  return `<div class="vhead first"><h2>Recycle bin${help('bin')}</h2>${b?.some(x => x.ref) ? btn('Empty bin', 'emptyBin', {}, 'ghost danger', false, 'trash') : ''}</div>
   <p class="hint" style="margin:-4px 0 12px">Deleted branches, tags and stashes wait here until you empty the bin.</p>
   ${!b ? '' : b.length ? `<div class="list">${b.map(x => { const [label, icon] = KIND[x.kind] || KIND.branch
     return `<div class="row">${ic(icon)}<div class="main"><div class="name">${esc(x.kind === 'stash' ? stashLabel(x.subject) : x.name)}<span class="badge">${esc(label)}</span></div>
@@ -1043,7 +1095,7 @@ function plain(a) {
 }
 function undoView(s) {
   const r = S.reflog
-  return `<div class="vhead first"><h2>Undo history</h2></div>
+  return `<div class="vhead first"><h2>Undo history${help('undo')}</h2></div>
   <p class="hint" style="margin:-4px 0 12px">Every change to ${s.detached ? 'where you are' : esc(s.branch)}. Jump back to any moment; unsaved work is backed up first.</p>
   ${r?.length ? `<div class="list">${r.map((x, i) => `<div class="row">${ic(i === 0 ? 'checkc' : 'clock')}<div class="main"><div class="name">${esc(plain(x.action))}</div>
     <div class="meta">${esc(x.when.replace(/^.*@\{(.*)\}$/, '$1'))} <code class="faint">${x.short}</code></div></div>
@@ -1052,18 +1104,69 @@ function undoView(s) {
     : `<div class="list"><div class="empty">${ic('undo', 30)}<p>Nothing recorded yet.</p></div></div>`}`
 }
 
+// ---------- Guide ----------
+// guide.md: "# Section", then "## Title {#id}" articles. A small Markdown subset: paragraphs, - and 1. lists, > tips,
+// ``` code, **bold**, `code`, and links: #guide:id (another article), #tab:name (a part of the app), https:// (opens a browser).
+let GUIDE = null
+const help = id => `<button class="icon ghost helpq" data-act="guide" data-id="${id}" title="Learn more in the guide" aria-label="Learn more in the guide">${ic('help', 15)}</button>`
+function parseGuide(src) {
+  const arts = []
+  let section = ''
+  for (const block of src.split(/^(?=#{1,2} )/m)) {
+    const m = block.match(/^(#{1,2}) (.+?)(?: \{#([\w-]+)\})?\n/)
+    if (!m) continue
+    if (m[1] === '#') section = m[2]
+    else arts.push({ id: m[3], title: m[2], section, body: block.slice(m[0].length).trim() })
+  }
+  return arts
+}
+function guideLink(href, text) {
+  let m
+  if ((m = href.match(/^#guide:([\w-]+)$/))) return `<a href="#" data-act="guide" data-id="${m[1]}">${text}</a>`
+  if ((m = href.match(/^#tab:(\w+)$/)) && TABS[m[1]]) return `<a href="#" data-act="guideTab" data-tab="${m[1]}">${text}</a>`
+  if (/^https:\/\//.test(href)) return `<a href="${href}" target="_blank" rel="noopener">${text}</a>`
+  return text
+}
+const mdInline = t => esc(t).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+  .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, text, href) => guideLink(href, text))
+function md(src) {
+  return src.split(/\n{2,}/).map(block => {
+    if (block.startsWith('```')) return `<pre>${esc(block.replace(/^```\w*\n?|\n?```$/g, ''))}</pre>`
+    if (block.startsWith('### ')) return `<h4>${mdInline(block.slice(4))}</h4>`
+    if (block.startsWith('> ')) return `<div class="tipbox">${ic('bulb')}<p>${mdInline(block.replace(/^> ?/gm, ''))}</p></div>`
+    const items = block.split(/\n(?=- |\d+\. )/)
+    if (/^- /.test(block)) return `<ul>${items.map(i => `<li>${mdInline(i.slice(2))}</li>`).join('')}</ul>`
+    if (/^\d+\. /.test(block)) return `<ol>${items.map(i => `<li>${mdInline(i.replace(/^\d+\. /, ''))}</li>`).join('')}</ol>`
+    return `<p>${mdInline(block)}</p>`
+  }).join('')
+}
+function guideView() {
+  const q = S.gq.trim().toLowerCase(), hits = GUIDE.filter(a => !q || (a.title + ' ' + a.body).toLowerCase().includes(q))
+  const a = GUIDE.find(x => x.id === S.gid) || GUIDE[0], next = GUIDE[GUIDE.indexOf(a) + 1]
+  let section
+  const list = hits.map(x => (x.section !== section ? `<li class="gsec">${esc(section = x.section)}</li>` : '') +
+    `<li class="${x === a ? 'sel' : ''}" data-act="guide" data-id="${x.id}">${esc(x.title)}</li>`).join('')
+  return `<div class="vhead first"><h2>Guide</h2>${btn(S.repo ? 'Back to KrazyGit' : 'Close the guide', 'guideClose', {}, 'ghost', false, 'x')}</div>
+  <div class="split guide"><div class="pane-l"><div class="search" style="margin:8px">${ic('search', 14)}<input id="gq" type="search" placeholder="Search the guide" value="${esc(S.gq)}" autocomplete="off" aria-label="Search the guide"></div>
+    <ul class="commits glist">${list || '<li class="gsec">Nothing matches</li>'}</ul></div>
+  <article class="pane-r gtext" id="garticle"><p class="hint">${esc(a.section)}</p><h3>${esc(a.title)}</h3>${md(a.body)}
+    ${next ? `<p class="gnext">${btn(`Next: ${next.title}`, 'guide', { id: next.id }, 'ghost', false, 'arrow')}</p>` : ''}</article></div>`
+}
+
 // ---------- Command line, settings ----------
 function cliView(s) {
-  return `<div class="vhead first"><h2>Command line</h2></div><p class="hint" style="margin:-4px 0 12px">For anything the buttons don’t cover. Runs inside <code>${esc(s.short_path)}</code>.</p>
+  return `<div class="vhead first"><h2>Command line${help('command-line')}</h2></div><p class="hint" style="margin:-4px 0 12px">For anything the buttons don’t cover. Runs inside <code>${esc(s.short_path)}</code>.</p>
   <div class="form"><span class="btnlike" style="cursor:default"><code>git</code></span><input id="cmd" class="mono" placeholder="status" value="${esc(val('cmd'))}" data-enter="runCmd" aria-label="Git command" autocomplete="off" spellcheck="false">${btn('Run', 'runCmd', {}, 'primary')}</div>
   <div class="chips" style="margin-top:10px">${['status', 'log --oneline --graph --all -30', 'branch -a', 'remote -v', 'diff --stat', 'shortlog -sn'].map(c => btn('git ' + c, 'runCmd', { cmd: c }, 'chip')).join('')}</div>
   ${S.cmdOut ? `<pre class="out">${esc(S.cmdOut)}</pre>` : ''}`
 }
 function settingsView(s) {
   const remotes = Object.entries(s.remotes)
-  return `<div class="vhead first"><h2>Settings</h2></div>
-  <div class="card"><h3>${ic('user')}Your name and email</h3><p class="hint">On every commit you make, in all projects.</p>
-    <div class="form"><input id="whoName" placeholder="Your name" value="${esc(val('whoName', s.who.name))}" aria-label="Your name"><input id="whoEmail" type="email" placeholder="you@example.com" value="${esc(val('whoEmail', s.who.email))}" aria-label="Your email">${btn('Save', 'saveWho', {}, 'primary')}</div></div>
+  return `<div class="vhead first"><h2>Settings${help('settings')}</h2></div>
+  <div class="card"><h3>${ic('user')}Your name and email</h3><p class="hint">${s.who_project ? 'Only for this project. Your other projects use your usual details.' : 'On every commit you make, in all projects.'}</p>
+    <div class="form"><input id="whoName" placeholder="Your name" value="${esc(val('whoName', s.who.name))}" aria-label="Your name"><input id="whoEmail" type="email" placeholder="you@example.com" value="${esc(val('whoEmail', s.who.email))}" aria-label="Your email">
+      ${s.who_project ? btn('Save', 'saveWho', { scope: 'project' }, 'primary') : btn('Save', 'saveWho', {}, 'primary') + btn('This project only', 'saveWho', { scope: 'project' }, 'ghost', false, '', 'Use these details only in this project, for example a work email')}</div>
+    ${s.who_project ? `<p class="hint" style="margin-top:8px">${btn('Use my usual details here', 'clearWho', {}, 'link')}</p>` : ''}</div>
   <div class="card"><h3>${ic('cloud')}Back up online</h3>
   ${remotes.length ? `<p class="hint">${remotes.length > 1 ? 'New branches are published to the one marked below. Each branch keeps syncing with the server it’s linked to.' : 'Connected. Press Sync in the toolbar to upload and download.'}</p>
     <div class="list">${remotes.map(([n, u]) => { const host = hostName(u) === 'the server' ? n : hostName(u), main = remotes.length > 1 && n === s.main_remote
@@ -1186,7 +1289,7 @@ const HOW_TO_CHOOSE = `<ol style="padding-left:20px;margin:0;display:grid;gap:8p
   <li>After finishing, run your app or tests before you sync.</li></ol>`
 function conflictsView(s) {
   const files = s.files.filter(f => f.conflict)
-  const head = `<div class="vhead first"><h2>Conflicts</h2>${s.doing ? `${files.length ? '' : btn(s.doing === 'merge' ? 'Finish merge' : 'Continue', 'finish', { kind: s.doing, action: 'continue' }, 'primary', false, 'check')}
+  const head = `<div class="vhead first"><h2>Conflicts${help('conflicts')}</h2>${s.doing ? `${files.length ? '' : btn(s.doing === 'merge' ? 'Finish merge' : 'Continue', 'finish', { kind: s.doing, action: 'continue' }, 'primary', false, 'check')}
     ${s.doing === 'rebase' || s.doing === 'cherry-pick' ? btn('Skip this commit', 'finish', { kind: s.doing, action: 'skip' }, 'ghost') : ''}${btn('Cancel and go back', 'finish', { kind: s.doing, action: 'abort' }, 'ghost danger', false, 'undo')}` : ''}</div>
     <div class="banner">${ic('alert')}<div>${s.doing ? `<b>${DOING[s.doing]} in progress.</b> ${files.length ? `Choose what to keep in each file. ${plural(files.length, 'file')} left.` : 'All fixed. Finish to save the result.'}`
       : '<b>Bringing back a stash caused clashes.</b> Choose what to keep. The stash stays on the shelf until you delete it.'}</div>${files.length > 1 ? btn('Fix the easy ones', 'fixAllEasy', {}, 'primary', false, 'bulb') : ''}${btn('How do I choose?', 'howToChoose', {}, 'ghost', false, 'help')}</div>`
@@ -1331,9 +1434,26 @@ const ACT = {
   noop: () => {},
   diffMode: d => { S.diffMode = d.mode; store('diffMode', d.mode); render() },
   refresh: () => refresh(),
-  tab: d => { S.tab = d.tab; return refresh() },
+  tab: d => { S.tab = d.tab; S.cmp = null; return refresh() },
   tips: () => { S.tipsOpen = !S.tipsOpen; render() },
-  help: () => ask({ title: 'How Git works', body: `<div class="help">${HELP}</div>`, buttons: [['Got it', true]] }),
+  guide: async d => {
+    if (!GUIDE) {
+      const r = await fetch('/guide.md').catch(() => null)
+      GUIDE = r?.ok ? parseGuide(await r.text()) : null
+      if (!GUIDE?.length) { GUIDE = null; return toast('Couldn’t open the guide.', 'err') }
+    }
+    if (S.tab !== 'guide') { S.back = S.tab; S.gq = '' }
+    S.tab = 'guide'
+    S.gid = d.id || S.gid || 'welcome'
+    render(); main.scrollTop = 0; $('#garticle')?.scrollTo(0, 0)
+  },
+  guideClose: () => { S.tab = S.back && S.back !== 'guide' ? S.back : 'branches'; return refresh() },
+  guideTab: d => {  // a link in the guide to a part of the app
+    const t = TABS[d.tab]
+    if (!S.st) return toast('Add a project first: press + next to Projects.', 'warn')
+    if (t.show && !t.show(S.st)) return toast(['stashes', 'tags', 'cli'].includes(d.tab) ? `${t.label} shows up once you turn on Advanced tools in Settings.` : `There’s nothing in ${t.label} right now.`, 'warn')
+    S.tab = d.tab; return refresh()
+  },
   quit: async () => { await api('quit'); S.closed = 'quit'; render() },
   toggleAdv: (d, el) => { S.adv = el.checked; store('adv', S.adv ? '1' : '0'); render() },
   addRepo: async () => {
@@ -1365,7 +1485,7 @@ const ACT = {
     if (d.download_only) toast(`${d.got ? `Downloaded ${plural(d.got, 'new commit')}` : `${s.branch} is up to date`} from ${serverName(s, (d.relinked || s.follow?.ref || '').split('/')[0] || s.main_remote)}.${d.relinked ? ` ${s.branch} now follows it.` : ''}`,
       'ok', null, d.got ? undoMove('keep')(d) : null)
     else if (d.conflicts) toast('New commits from the server clash with yours. Choose what to keep in Conflicts.', 'warn')
-    else toast(syncSummary(d, s, host), 'ok', null, d.got && !d.sent ? undoMove('keep')(d) : null)
+    else toast(syncSummary(d, s, host), 'ok', null, d.got && !d.sent ? undoMove('keep')(d) : null, d.pr_url)
     return refresh()
   },
   fetchNow: () => act('fetch', {}, 'Branch list is up to date.'),
@@ -1408,10 +1528,17 @@ const ACT = {
     if (S.amend && !await confirmIt('Add to your last commit?', `Your changes join “${esc(S.st.last_message.split('\n')[0])}” instead of making a new commit.`, 'Amend')) return
     let everything = !S.amend && !files.some(isStaged)
     const going = everything ? files : files.filter(isStaged)
+    const list = fs => `<ul>${fs.map(f => `<li><code>${esc(f.path)}</code>${f.size > BIG ? ` (${mb(f.size)})` : ''}</li>`).join('')}</ul>`
+    const edited = everything ? [] : going.filter(f => f.y === 'M')  // ticked, then changed again: Git would commit the ticked version
+    if (edited.length) {
+      const c = await ask({ title: 'You changed these after ticking them', body: `<p>The commit would include them as they were when you ticked them:</p>${list(edited)}`,
+        buttons: [['Commit the ticked version', 'old', ''], ['Include my latest changes', 'new', 'primary']] })
+      if (!c) return
+      if (c === 'new') await api('stage', { repo: S.repo, paths: edited.map(f => f.path) })
+    }
     const risky = going.filter(f => (f.x === '?' || f.x === 'A') && SECRET.test(f.path)), big = going.filter(f => f.size > BIG)
     let skip = []
     if (risky.length || big.length) {
-      const list = fs => `<ul>${fs.map(f => `<li><code>${esc(f.path)}</code>${f.size > BIG ? ` (${mb(f.size)})` : ''}</li>`).join('')}</ul>`
       const c = await ask({ title: 'Check these files first',
         body: (risky.length ? `<p>These look like passwords or secret keys. Once they’re committed and uploaded, they’re very hard to remove:</p>${list(risky)}` : '') +
           (big.length ? `<p>These are very large. GitHub refuses files over 100 MB, and big files make every sync slow:</p>${list(big)}` : ''),
@@ -1455,7 +1582,13 @@ const ACT = {
     if (await confirmIt(`Throw away all ${plural(n, 'change')}?`, 'Every file goes back to your last commit, and new files are removed. A backup is kept in Stashes, and you can press Undo straight after.', 'Discard everything', 'danger-btn'))
       return act('discard', { paths: ['.'] }, 'Discarded all changes. A backup is in Stashes.', undoDiscard)
   },
-  ignore: d => act('ignore', { pattern: d.pattern }, `Added ${d.pattern} to .gitignore.`),
+  ignore: d => act('ignore', { pattern: d.pattern }, r => `Added ${d.pattern} to .gitignore.${r?.still_tracked ? ` Git still tracks ${plural(r.still_tracked, 'file')} it already had: see the suggestion to stop.` : ''}`),
+  untrack: async () => {
+    const n = S.st.ignored_tracked
+    if (await confirmIt(`Stop tracking ${plural(n, 'ignored file')}?`, `Git forgets ${n === 1 ? 'it' : 'them'}, and ${n === 1 ? 'it stays' : 'they stay'} on your computer. Commit to finish.
+      <p>When teammates sync that commit, Git removes ${n === 1 ? 'the file' : 'those files'} from their copy too. That’s fine for generated files, but they’d need to recreate anything like settings or keys.</p>`, 'Stop tracking'))
+      return act('untrack_ignored', {}, r => `Git stopped tracking ${plural(r.count, 'file')}. Commit to finish.`)
+  },
   stashAll: async () => {
     const m = await ask({ title: 'Stash your changes', body: 'Your changes go on the shelf and your files go back to your last commit. Bring them back any time.', input: 'What were you working on? (optional)', buttons: [['Stash', true]] })
     if (m !== null) return act('stash_save', { message: m }, 'Stashed your changes.', () => () => act('stash_apply', { ref: 'stash@{0}', pop: true }, 'Undone. Your changes are back.'))
@@ -1463,11 +1596,14 @@ const ACT = {
 
   // branches
   newBranch: async d => {
-    const s = S.st, from = d.start
-    const raw = await ask({ title: 'New branch', body: `Starts from ${from ? `<code>${esc(from.length === 40 ? from.slice(0, 7) : from)}</code>` : s.detached ? 'this commit' : `<b>${esc(s.branch)}</b>`}. You switch to it, and uncommitted changes come along.`,
-      input: 'Describe the work, e.g. fix login button', buttons: [['Create branch', true]] })
-    const name = raw && named(raw, 'branch')
-    if (name) return act('create_branch', { name, start: from || null }, `Created ${name} and switched to it.`)
+    const s = S.st, team = !d.start && !s.detached && s.team_main  // new work usually starts from the team's newest main branch
+    const dirty = s.files.some(f => !f.conflict)  // uncommitted changes always fit where you are; on the team's copy they may clash
+    const r = await ask({ title: 'New branch', body: team
+        ? `Start it from the team’s latest <b>${esc(shortName(team))}</b> on ${esc(serverName(s, team.split('/')[0]))}, or from <b>${esc(s.branch)}</b> as it is now. You switch to it, and uncommitted changes come along.`
+        : `Starts from ${d.start ? `<code>${esc(d.start.length === 40 ? d.start.slice(0, 7) : d.start)}</code>` : s.detached ? 'this commit' : `<b>${esc(s.branch)}</b>`}. You switch to it, and uncommitted changes come along.`,
+      input: 'Describe the work, e.g. fix login button', buttons: team ? [[`From ${s.branch}`, 'here', dirty ? 'primary' : ''], [`From the team’s ${shortName(team)}`, 'team', dirty ? '' : 'primary']] : [['Create branch', true]] })
+    const raw = team ? r?.text : r, name = raw && named(raw, 'branch')
+    if (name) return act('create_branch', { name, start: team && r.choice === 'team' ? team : d.start || null }, `Created ${name} and switched to it.`)
   },
   switch: async d => {
     const s = S.st, target = d.remote ? shortName(d.name) : d.name
@@ -1495,9 +1631,13 @@ const ACT = {
       return act('rebase', { name: d.name }, `Rebased ${cur} onto ${d.name}.`, undoMove('keep'))
   },
   rename: async d => {
-    const raw = await ask({ title: `Rename ${d.name}`, input: 'New name', value: d.name, buttons: [['Rename', true]] })
-    const name = raw && named(raw, 'branch')
-    if (name && name !== d.name) return act('rename_branch', { old: d.name, new: name }, `Renamed to ${name}.`, () => () => act('rename_branch', { old: name, new: d.name }, 'Undone.'))
+    const s = S.st, up = s.branches.find(b => b.name === d.name)?.upstream, main = MAIN.includes(d.name), where = up && esc(serverName(s, up.split('/')[0]))
+    const r = await ask({ title: `Rename ${d.name}`, input: 'New name', value: d.name,
+      body: up ? `It’s also on ${where}. Rename it there too, or only here: then the old name stays online, and the next Sync uploads the new one.${main ? `<p><b>${esc(d.name)} is a main branch.</b> Renaming it online affects everyone on the project.</p>` : ''}` : '',
+      buttons: !up ? [['Rename', true]] : main ? [[`Rename on ${where} too`, 'both', ''], ['Only here', 'here', 'primary']] : [['Only here', 'here', ''], [`Rename on ${where} too`, 'both', 'primary']] })
+    const raw = up ? r?.text : r, name = raw && named(raw, 'branch'), on_server = !!up && r?.choice === 'both'
+    if (name && name !== d.name) return act('rename_branch', { old: d.name, new: name, on_server }, `Renamed to ${name}${on_server ? `, here and on ${where}` : ''}.`,
+      () => () => act('rename_branch', { old: name, new: d.name, on_server }, 'Undone.'))
   },
   deleteBranch: async d => {
     const main = MAIN.includes(d.name) ? '<p><b>This is one of your main branches.</b> Most projects need it. Only delete it if you’re sure.</p>' : ''
@@ -1515,6 +1655,16 @@ const ACT = {
   },
   branchHistory: d => { S.tab = 'history'; S.logRef = d.name; S.commit = null; return refresh() },
   bView: d => { S.bview = d.view; S.bsel.clear(); render() },
+  prPreview: async d => {
+    try { S.cmp = { name: d.name, base: S.st.team_main, data: await api('compare', { repo: S.repo, base: S.st.team_main, head: d.name }) } } catch (e) { return showError(e) }
+    render()
+  },
+  cmpClose: () => { S.cmp = null; render() },
+  prOpen: async d => {
+    let url
+    try { url = await api('pr_link', { repo: S.repo, name: d.name }) } catch (e) { return showError(e) }
+    window.open(url, '_blank', 'noopener')
+  },
   bToggle: (d, el) => { if (el.checked) S.bsel.add(d.name); else S.bsel.delete(d.name); render() },
   bAll: (d, el) => { const m = branchModel(S.st); if (el.checked) m.pick.forEach(b => S.bsel.add(b.name)); else S.bsel.clear(); render() },
   bPick: d => { const m = branchModel(S.st); S.bsel = new Set(m.pick.filter({ merged: m.merged, old: m.isOld, sync: m.needsSync }[d.which]).map(b => b.name)); render() },
@@ -1541,6 +1691,7 @@ const ACT = {
   // history
   logRef: (d, el) => { S.logRef = el.value; S.commit = null; S.logLimit = 100; return refresh() },
   search: (d, el) => { S.search = el.value.trim(); S.logLimit = 100; return refresh() },
+  sMode: (d, el) => { S.smode = el.value; S.search = $('#search')?.value.trim() || ''; S.logLimit = 100; return refresh() },
   moreLog: () => { S.logLimit += 100; return refresh() },
   showCommit: async d => { S.commit = await api('commit_info', { repo: S.repo, sha: d.sha }); render() },
   showLost: async d => { S.commit = await api('commit_info', { repo: S.repo, sha: d.sha }); S.tab = 'history'; S.logRef = '--all'; return refresh() },
@@ -1568,14 +1719,19 @@ const ACT = {
       return act('restore_file', { sha: d.sha, path: d.path, deleted: !!d.deleted }, `Restored ${d.path}. Commit it to keep it.`)
   },
   newTag: async d => {
-    const raw = await ask({ title: 'New tag', body: 'Usually a version number.', input: 'e.g. v1.0.0', buttons: [['Create tag', true]] })
+    const raw = await ask({ title: 'New tag', body: 'Usually a version number.', input: 'e.g. v1.0.0', buttons: [['Next', true]] })
     const name = raw && named(raw, 'tag')
-    if (name) return act('create_tag', { name, sha: d.sha || null }, `Tagged ${name}.`)
+    if (!name) return
+    const message = await ask({ title: `What’s in ${name}?`, body: 'Optional. A line or two people see next to the tag, for example on GitHub’s releases page.', input: 'e.g. First public release', buttons: [['Create tag', true]] })
+    if (message !== null) return act('create_tag', { name, sha: d.sha || null, message }, `Tagged ${name}.`)
   },
   deleteTag: async d => {
-    if (await confirmIt(`Delete tag ${d.name}?`, 'It goes to the Recycle bin. If it was uploaded, it stays on the server.', 'Delete tag', 'danger-btn'))
-      return act('delete_tag', { name: d.name }, `Deleted ${d.name}.`, undoBin('tag'))
+    const host = remoteHost(S.st), up = S.rtags?.includes(d.name)
+    const c = await ask({ title: `Delete tag ${d.name}?`, body: up ? `It’s also on ${esc(host)}. Deleted only here, it comes back the next time you sync. Either way, a copy goes to the Recycle bin.` : 'It goes to the Recycle bin.',
+      buttons: up ? [['Only on this computer', 'here', ''], [`Delete here and on ${host}`, 'both', 'danger-btn']] : [['Delete tag', 'here', 'danger-btn']] })
+    if (c) return act('delete_tag', { name: d.name, on_server: c === 'both' }, `Deleted ${d.name}${c === 'both' ? ` here and on ${host}` : ''}.`, undoBin('tag'))
   },
+  uploadTags: d => { const names = d.names.split('\n'); return act('upload_tags', { names }, `Uploaded ${names.length === 1 ? names[0] : plural(names.length, 'tag')} to ${remoteHost(S.st)}.`) },
 
   // stashes
   stashApply: d => act('stash_apply', { ref: d.ref, pop: !!d.pop }, d.pop ? 'Brought your changes back.' : 'Applied a copy. The stash is still on the shelf.'),
@@ -1621,11 +1777,12 @@ const ACT = {
     try { const r = await api('raw', { repo: S.repo, command: cmd }); S.cmdOut = `$ git ${cmd.replace(/^git\s+/, '')}\n${r.out || '(no output)'}` } catch (e) { S.cmdOut = e.error }
     return refresh()
   },
-  saveWho: () => {
-    const email = val('whoEmail', S.st.who.email)
+  saveWho: d => {
+    const email = val('whoEmail', S.st.who.email), project_only = d.scope === 'project'
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast('That email doesn’t look right.', 'warn')
-    return act('set_identity', { name: val('whoName', S.st.who.name), email }, 'Saved. Your commits will carry this name.')
+    return act('set_identity', { name: val('whoName', S.st.who.name), email, project_only }, project_only ? 'Saved for this project.' : 'Saved. Your commits will carry this name.')
   },
+  clearWho: () => { delete S.f.whoName; delete S.f.whoEmail; return act('clear_project_identity', {}, 'This project uses your usual name and email again.') },
   addRemote: async () => {
     const url = val('remUrl').trim(), name = S.adv ? val('remName', hasRemote(S.st) ? '' : 'origin').trim() : 'origin'
     if (!/^(https?:\/\/|git@|ssh:\/\/|file:\/\/|\/|~)/.test(url)) return toast('That doesn’t look like a repository address. Copy it from GitHub: it starts with https:// or git@', 'warn')
@@ -1699,8 +1856,8 @@ const ACT = {
 // Looking around (tabs, picking a file, ticking branches, conflict choices) is always allowed.
 let acting = false
 const FREE = new Set(['noop', 'diffMode', 'hideTip', 'keepRemote', 'bRemote', 'cfApplyAll', 'howToChoose', 'tab', 'tips', 'select', 'showCommit', 'pickConflict', 'cfPick', 'cfUndo', 'cfEdit', 'cfDone', 'cfBack', 'manualConflict',
-  'useSuggestion', 'amendToggle', 'help', 'logRef', 'search', 'moreLog', 'stashView', 'toggleAdv', 'refresh', 'branchHistory', 'openRepo',
-  'bView', 'bToggle', 'bAll', 'bPick', 'bClear', 'bSort'])
+  'useSuggestion', 'amendToggle', 'logRef', 'search', 'moreLog', 'stashView', 'toggleAdv', 'refresh', 'branchHistory', 'openRepo',
+  'bView', 'bToggle', 'bAll', 'bPick', 'bClear', 'bSort', 'guide', 'guideClose', 'guideTab', 'sMode', 'cmpClose'])
 async function guarded(fn) {
   if (acting) return
   acting = true
@@ -1711,6 +1868,7 @@ const closePops = except => document.querySelectorAll('details.pop[open]').forEa
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-act]'), pop = e.target.closest('details.pop')
   closePops(el ? null : pop)  // clicking an item in a menu closes it; clicking inside one (like its search box) keeps it open
+  if (el?.tagName === 'A') e.preventDefault()  // links in the guide that lead somewhere in the app
   if (el && !el.disabled) run(el.dataset.act, el)
 })
 document.addEventListener('change', e => { if (e.target.dataset.change) run(e.target.dataset.change, e.target) })
@@ -1719,6 +1877,7 @@ document.addEventListener('input', e => {
   if (t.id === 'repoFilter') { S.filter = t.value; renderRepoList() }
   else if (t.id === 'bpq') $('#bplist').innerHTML = pickerList(S.st, t.value)
   else if (t.id === 'bq') { S.bq = t.value; render() }
+  else if (t.id === 'gq') { S.gq = t.value; render() }
   else if (t.id === 'cfm') S.cf.manual = t.value
   else if (t.dataset.cf) S.cf.segs[t.dataset.cf].draft = t.value
   else if (t.id && main.contains(t)) S.f[t.id] = t.value

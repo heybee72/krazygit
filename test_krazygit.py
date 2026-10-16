@@ -204,7 +204,7 @@ snap("fresh commit")
 assert op["sync"](repo=repo)["sent"] == 1 and st()["ahead"] == 0  # later syncs keep going to the same server
 op["set_main_remote"](repo=repo, name="origin")
 assert st()["main_remote"] == "origin"
-assert op["link_to"](repo=repo, remote="origin") == {"uploaded": True}  # not on that server yet: upload it there
+assert op["link_to"](repo=repo, remote="origin")["uploaded"]  # not on that server yet: upload it there
 assert st()["upstream"] == "origin/fresh-work"
 op["switch"](repo=repo, name="main")
 # main follows the wrong server; the other server has its own main: just follow it, upload nothing
@@ -305,6 +305,110 @@ assert rev(repo, "main") == team_main == rev(team, "main") and st()["branch"] ==
 sh("switch", "-q", "main")
 op["set_download_only"](repo=repo, name="main", on=False)
 
+# renaming a branch that's online: rename it on the server too, or unlink it so Sync publishes the new name
+team_heads = lambda: set(subprocess.run(["git", "for-each-ref", "--format=%(refname:short)", "refs/heads"], cwd=team,
+                                        capture_output=True, text=True).stdout.split())
+res = op["rename_branch"](repo=repo, old="side", new="side-renamed", on_server=True)
+assert {"side-renamed"} <= team_heads() and "side" not in team_heads() and res["parked"][0]["name"] == "upstream/side"
+assert next(b for b in st()["branches"] if b["name"] == "side-renamed")["upstream"] == "upstream/side-renamed"
+sh("branch", "solo", "main")
+sh("push", "-q", "-u", "upstream", "solo")
+op["rename_branch"](repo=repo, old="solo", new="solo-b")
+assert next(b for b in st()["branches"] if b["name"] == "solo-b")["upstream"] == "" and "solo" in team_heads()
+sh("switch", "-q", "solo-b")
+assert op["sync"](repo=repo)["sent"] == -1 and st()["upstream"] == "upstream/solo-b"
+sh("switch", "-q", "main")
+for bad in ("solo-b", "bad name"):
+    try:
+        op["rename_branch"](repo=repo, old="feature", new=bad)
+        raise AssertionError("renamed to " + bad)
+    except g.GitError:
+        pass
+
+# a new branch started from the team's copy is new work: not linked to the team's branch, so Sync publishes it
+assert st()["team_main"] == "upstream/main"
+op["create_branch"](repo=repo, name="from-team", start="upstream/main")
+assert st()["upstream"] is None and op["sync"](repo=repo)["sent"] == -1 and st()["upstream"] == "upstream/from-team"
+sh("switch", "-q", "main")
+
+# tags: your own note, upload one (even a plain one made elsewhere), delete on the server too
+op["create_tag"](repo=repo, name="v1.0", message="First release")
+sh("tag", "plain")
+assert next(t for t in st()["tags"] if t["name"] == "v1.0")["subject"] == "First release"
+already = set(op["remote_tags"](repo=repo))  # annotated tags travel with Sync
+assert "plain" not in already
+op["upload_tags"](repo=repo, names=["v1.0", "plain"])
+assert set(op["remote_tags"](repo=repo)) == already | {"plain", "v1.0"}
+gone = op["delete_tag"](repo=repo, name="plain", on_server=True)
+assert set(op["remote_tags"](repo=repo)) == already | {"v1.0"} and gone["name"] == "plain"
+op["fetch"](repo=repo)
+assert "plain" not in {t["name"] for t in st()["tags"]}  # and it doesn't come back
+
+# ignoring a file that's already committed: Git keeps tracking it until told to stop; the file stays on disk
+write("build.log", "noise\n")
+snap("oops, a log")
+assert op["ignore"](repo=repo, pattern="*.log") == {"still_tracked": 1} and st()["ignored_tracked"] == 1
+assert op["untrack_ignored"](repo=repo) == {"count": 1} and read("build.log") == "noise\n"
+assert {"path": "build.log", "x": "D"}.items() <= next(f for f in st()["files"] if f["path"] == "build.log").items()
+snap("stop tracking logs")
+assert st()["ignored_tracked"] == 0 and st()["files"] == []
+
+# a stash comes back with the same files ticked, and still comes back when that's impossible
+write("ticked.txt", "t\n")
+op["stage"](repo=repo, paths=["ticked.txt"])
+write("a.txt", "not ticked\n")
+op["stash_save"](repo=repo, message="half ticked")
+op["stash_apply"](repo=repo, ref="stash@{0}", pop=True)
+files = {f["path"]: f["x"] + f["y"] for f in st()["files"]}
+assert files == {"ticked.txt": "A.", "a.txt": ".M"}, files
+op["stash_save"](repo=repo)
+write("ticked.txt", "t\n")
+snap("same file committed meanwhile")
+assert not op["stash_apply"](repo=repo, ref="stash@{0}").get("conflicts") and read("a.txt") == "not ticked\n"
+sh("checkout", "--", "a.txt")
+op["stash_drop"](repo=repo, ref="stash@{0}")
+
+# history: find the commits that added or removed some code
+found = op["log"](repo=repo, ref="--all", search="use B;", mode="code")
+assert "we add B" in {c["subject"] for c in found} and not op["log"](repo=repo, search="use B;")
+
+# a branch's pull request preview: its commits and the combined change, against where it split off
+cmp = op["compare"](repo=repo, base="main", head="side-renamed")
+assert "mine" in {c["subject"] for c in cmp["commits"]} and "local.txt" in cmp["patch"]
+
+# pull request links: the address the server prints after an upload, or one built for GitHub, Bitbucket, GitLab
+assert g.parse_remote("git@github.com:me/proj.git") == ("github.com", "me/proj")
+assert g.parse_remote("https://user@bitbucket.org/team/proj.git/") == ("bitbucket.org", "team/proj")
+assert g.parse_remote("/some/folder") == (None, None)
+sh("remote", "add", "fork", "git@github.com:me/proj.git")
+sh("remote", "add", "hub", "https://github.com/team/proj.git")
+sh("config", "branch.side-renamed.remote", "fork")
+for name in ("fork", "hub"):  # made-up addresses: never contact them
+    sh("config", "remote.%s.skipFetchAll" % name, "true")
+assert op["pr_link"](repo=repo, name="side-renamed", base="hub/main") == \
+    "https://github.com/team/proj/compare/main...me:side-renamed?expand=1"
+sh("remote", "set-url", "fork", "git@bitbucket.org:me/proj.git")
+sh("remote", "set-url", "hub", "git@bitbucket.org:team/proj.git")
+assert op["pr_link"](repo=repo, name="side-renamed", base="hub/main") == \
+    "https://bitbucket.org/me/proj/pull-requests/new?source=side-renamed&dest=team%2Fproj%3A%3Amain&t=1"
+hook = Path(team, "hooks", "post-receive")
+hook.write_text("#!/bin/sh\necho 'Create a pull request:' >&2\necho '  https://bitbucket.org/me/proj/pull-requests/new?source=x' >&2\n")
+hook.chmod(0o755)
+op["create_branch"](repo=repo, name="pr-me")
+assert op["sync"](repo=repo)["pr_url"] == "https://bitbucket.org/me/proj/pull-requests/new?source=x"
+hook.unlink()
+sh("remote", "remove", "fork")
+sh("remote", "remove", "hub")
+sh("switch", "-q", "main")
+
+# a different name and email for this project only, then back to the everyday ones
+op["set_identity"](repo=repo, name="Work Me", email="me@work.example", project_only=True)
+assert st()["who_project"] and st()["who"]["email"] == "me@work.example"
+op["clear_project_identity"](repo=repo)
+assert not st()["who_project"]
+sh("config", "user.name", "Test")
+sh("config", "user.email", "test@example.com")
+
 # things saved under the app's old name (EasyGit) carry over: Recycle bin items and branch settings
 sh("update-ref", "refs/easygit-trash/branch/1700000000000/legacy-branch", "HEAD")
 sh("config", "branch.feature.easygitDownloadOnly", "true")
@@ -321,6 +425,7 @@ get = lambda path: urllib.request.urlopen("http://127.0.0.1:%d%s" % (g.PORT, pat
 page = get("/")
 assert "default-src 'none'" in page.headers["Content-Security-Policy"] and b"/vendor/highlight.min.js" in page.read()
 assert get("/vendor/highlight.min.js").read().startswith(b"/*!") and get("/vendor/highlight-dark.min.css").status == 200
+assert get("/guide.md").read().startswith(b"# ")
 for path in ("/vendor/LICENSE-lucide.txt", "/vendor/../krazygit.py", "/krazygit.py", "/vendor/"):
     try:
         get(path)
@@ -328,6 +433,19 @@ for path in ("/vendor/LICENSE-lucide.txt", "/vendor/../krazygit.py", "/krazygit.
     except urllib.error.HTTPError as e:
         assert e.code == 404, path
 srv.shutdown()
+
+# the guide: every article has a unique id, and every link and "?" button in the app leads somewhere real
+import re
+guide, page = (Path(g.HERE, f).read_text() for f in ("guide.md", "krazygit.html"))
+heads = re.findall(r"^## (.*)$", guide, re.M)
+ids = [m.group(1) for h in heads if (m := re.search(r" \{#([\w-]+)\}$", h))]
+assert len(ids) == len(heads) == len(set(ids)), "every ## heading needs its own {#id}"
+tabs = set(re.findall(r"^  (\w+): \{ label:", page, re.M))
+assert {"branches", "changes", "settings"} <= tabs
+for link in re.findall(r"\]\(([^)]*)\)", guide):
+    assert link.startswith("https://") or link[len("#guide:"):] in ids or link[len("#tab:"):] in tabs, "broken guide link " + link
+used = re.findall(r"help\('([\w-]+)'\)", page) + re.findall(r"'guide', \{ id: '([\w-]+)' \}", page)
+assert len(used) > 10 and not set(used) - set(ids), set(used) - set(ids)
 
 # safety rails
 for bad in (lambda: op["init"](path=str(Path.home())),

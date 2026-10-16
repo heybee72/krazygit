@@ -18,6 +18,7 @@ import tempfile
 import threading
 import time
 import traceback
+import urllib.parse
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -38,7 +39,8 @@ NO_PROMPT = dict(ENV, GIT_ASKPASS="", SSH_ASKPASS="", SSH_ASKPASS_REQUIRE="never
 CMDS = []  # git commands run for the current request, shown in "What Git did"
 OPS = {}
 QUIET = {"repos", "pick_folder", "add_repo", "state", "diff", "log", "commit_info", "read_file",
-         "bin", "lost", "reflog", "merge_preview", "stash_diff", "auto_fetch", "ping", "conflict_base"}
+         "bin", "lost", "reflog", "merge_preview", "stash_diff", "auto_fetch", "ping", "conflict_base",
+         "remote_tags", "compare", "pr_link"}
 MOVES = {"commit", "merge", "rebase", "revert", "cherry_pick", "reset_to", "finish", "sync", "undo_commit"}  # undone by moving back
 VENDOR = {"highlight.min.js": "text/javascript; charset=utf-8",  # bundled libraries, see vendor/LICENSE-*
           "highlight-light.min.css": "text/css; charset=utf-8", "highlight-dark.min.css": "text/css; charset=utf-8"}
@@ -327,6 +329,9 @@ def state(repo):
         "download_only": sorted(download_only(repo, [b["name"] for b in branches])),
         "follow": follow_counts(repo, head.get("branch.head")) if remotes else None,
         "who": {k: git(repo, "config", "user." + k, ok=(0, 1)).strip() for k in ("name", "email")},
+        "who_project": bool(git(repo, "config", "--local", "user.email", ok=(0, 1)).strip()),
+        "team_main": team_main(repo) if remotes else None,
+        "ignored_tracked": len(ignored_but_tracked(repo)),
         "last_message": git(repo, "log", "-1", "--format=%B").strip() if born else "",
         "prev_branch": prev if prev in {b["name"] for b in branches} else None,
     }
@@ -392,13 +397,39 @@ def ignore(repo, pattern):
     old = gitignore.read_text() if gitignore.exists() else ""
     gitignore.write_text(old + ("\n" if old and not old.endswith("\n") else "") + pattern.strip() + "\n")
     CMDS.append("echo %s >> .gitignore" % shlex.quote(pattern.strip()))
+    return {"still_tracked": len(ignored_but_tracked(repo))}
+
+
+def ignored_but_tracked(repo):
+    """Files already committed that the ignore rules now cover: Git keeps tracking those until told otherwise."""
+    return [p for p in git(repo, "ls-files", "-ci", "--exclude-standard", "-z", quiet=True).split("\0") if p]
+
+
+@op
+def untrack_ignored(repo):
+    """Stop tracking files that are ignored but were committed earlier. They stay on disk."""
+    paths = ignored_but_tracked(repo)
+    if paths:
+        git(repo, "rm", "-r", "-q", "--cached", "--pathspec-from-file=-", "--pathspec-file-nul", input="\0".join(paths))
+    return {"count": len(paths)}
 
 
 # ---------- branches ----------
 
 @op
 def create_branch(repo, name, start=None):
-    git(repo, "switch", "-c", arg(name), *([arg(start)] if start else []))
+    extra = []
+    if start and run(repo, "rev-parse", "-q", "--verify", "refs/remotes/" + arg(start), quiet=True).returncode == 0:
+        with contextlib.suppress(GitError):  # get the newest copy first, if the server can be reached
+            run(repo, "fetch", "--quiet", start.split("/", 1)[0], quiet=True, env=NO_PROMPT, timeout=30)
+        extra = ["--no-track"]  # new work: publish under its own name, never link it to the team's branch
+    try:
+        git(repo, "switch", "-c", arg(name), *extra, *([arg(start)] if start else []))
+    except GitError as e:
+        if start and "would be overwritten" in str(e):
+            raise GitError("Your uncommitted changes clash with %s, so Git stopped. Nothing was changed. "
+                           "Start the branch from where you are instead, or commit or stash your changes first." % start)
+        raise
 
 
 @op
@@ -416,8 +447,25 @@ def switch(repo, name, remote=False, stash_first=False):
 
 
 @op
-def rename_branch(repo, old, new):
-    git(repo, "branch", "-m", arg(old), arg(new))
+def rename_branch(repo, old, new, on_server=False):
+    """Rename a branch. If it's online: rename it there too, or unlink it so the next Sync publishes the new name
+    (otherwise Sync would keep uploading to the old name on the server)."""
+    old, new = arg(old), arg(new)
+    git(repo, "check-ref-format", "--branch", new, quiet=True)
+    if run(repo, "rev-parse", "-q", "--verify", "refs/heads/" + new, quiet=True).returncode == 0:
+        raise GitError("A branch called %s already exists." % new)
+    remote = run(repo, "config", "branch.%s.remote" % old, quiet=True).stdout.strip()
+    online = remote not in ("", ".")
+    gone = run(repo, "config", "branch.%s.merge" % old, quiet=True).stdout.strip()[len("refs/heads/"):]
+    url = push(repo, "-u", remote, "%s:refs/heads/%s" % (old, new)) if online and on_server else None  # first: if the server refuses, nothing changed
+    git(repo, "branch", "-m", old, new)
+    if online and not on_server:
+        git(repo, "branch", "--unset-upstream", new)
+    parked = []  # the old name online goes to the Recycle bin
+    if online and on_server and gone and gone != new and \
+            run(repo, "rev-parse", "-q", "--verify", "refs/remotes/%s/%s" % (remote, gone), quiet=True).returncode == 0:
+        parked = delete_remote_branches(repo, ["%s/%s" % (remote, gone)])
+    return {"pr_url": url, "parked": parked}
 
 
 @op
@@ -513,13 +561,13 @@ def mark_resolved(repo, path):
 # ---------- history ----------
 
 @op
-def log(repo, ref="HEAD", limit=100, search=""):
+def log(repo, ref="HEAD", limit=100, search="", mode="message"):
     if not has_head(repo):
         return []
     args = ["log", "--format=%H%x1f%h%x1f%an%x1f%ar%x1f%s%x1f%D%x1e", "-n", str(int(limit)),
             "--decorate-refs-exclude=" + TRASH + "/*"]
-    if search:
-        args += ["-i", "--grep=" + search]
+    if search:  # code: commits that added or removed this text (git's "pickaxe")
+        args += ["-S" + search] if mode == "code" else ["-i", "--grep=" + search]
     args += ["--exclude=" + TRASH + "/*", "--all"] if ref == "--all" else [arg(ref)]
     rows = (r.strip("\n").split("\x1f") for r in git(repo, *args).split("\x1e"))
     return [dict(zip(("sha", "short", "author", "when", "subject", "refs"), r)) for r in rows if len(r) == 6]
@@ -599,7 +647,13 @@ def stash_save(repo, message=""):
 
 @op
 def stash_apply(repo, ref, pop=False):
-    return conflicting(repo, "stash", "pop" if pop else "apply", stash_ref(ref))
+    args = ["stash", "pop" if pop else "apply"]
+    try:  # bring back what was ticked as ticked
+        return conflicting(repo, *args, "--index", stash_ref(ref))
+    except GitError as e:
+        if not re.search(r"without --index", str(e), re.I):
+            raise
+    return conflicting(repo, *args, stash_ref(ref))
 
 
 @op
@@ -615,20 +669,101 @@ def stash_diff(repo, ref):
 
 
 @op
-def create_tag(repo, name, sha=None):
+def create_tag(repo, name, sha=None, message=""):
     name = arg(name)
-    git(repo, "tag", "-a", "-m", name, name, *([arg(sha)] if sha else []))
+    git(repo, "tag", "-a", "-m", message.strip() or name, name, *([arg(sha)] if sha else []))
 
 
 @op
-def delete_tag(repo, name):
+def delete_tag(repo, name, on_server=False):
     name = arg(name)
+    if on_server:  # first, so a refusal online leaves everything as it was (deleted only here, it would come back)
+        push(repo, main_remote(repo), "--delete", "refs/tags/" + name)
     sha = git(repo, "rev-parse", "refs/tags/" + name, quiet=True).strip()
     git(repo, "tag", "-d", name)
     return trash(repo, "tag", sha, name)
 
 
+@op
+def remote_tags(repo):
+    """Tag names on the main server, asked live without any sign-in prompt. None if it can't be reached."""
+    with contextlib.suppress(GitError):
+        r = run(repo, "ls-remote", "--tags", "--refs", main_remote(repo), quiet=True, env=NO_PROMPT, timeout=20)
+        if r.returncode == 0:
+            return sorted({line.split("refs/tags/", 1)[1] for line in r.stdout.splitlines() if "refs/tags/" in line})
+    return None
+
+
+@op
+def upload_tags(repo, names):
+    push(repo, main_remote(repo), *["refs/tags/" + arg(n) for n in names])
+
+
 # ---------- remotes ----------
+
+def push(repo, *args):
+    """git push; returns the 'create a pull request' link that GitHub, GitLab and Bitbucket print, if any."""
+    r = run(repo, "push", *args)
+    if r.returncode:
+        raise GitError((r.stderr + r.stdout).strip())
+    hosts = {parse_remote(u)[0] for u in git(repo, "remote", "-v", quiet=True).split()[1::3]}
+    for line in r.stderr.splitlines():
+        m = re.search(r"https://([^/\s]+)/\S+", line)
+        if line.startswith("remote:") and m and m.group(1) in hosts and re.search(r"pull|merge_request|compare", m.group(0)):
+            return m.group(0)
+    return None
+
+
+def parse_remote(url):
+    """git@host:owner/repo.git or https://host/owner/repo(.git) -> (host, "owner/repo")."""
+    m = re.match(r"^(?:\w+://)?(?:[^@/]+@)?([^/:]+)[:/](.+?)(?:\.git)?/?$", url or "")
+    return (m.group(1).lower(), m.group(2)) if m else (None, None)
+
+
+def team_main(repo):
+    """The team's main line: the main server's default branch, else its main/master/develop."""
+    remote = main_remote(repo)
+    head = run(repo, "symbolic-ref", "-q", "--short", "refs/remotes/%s/HEAD" % remote, quiet=True).stdout.strip()
+    if head:
+        return head
+    return next(("%s/%s" % (remote, b) for b in ("main", "master", "develop")
+                 if run(repo, "rev-parse", "-q", "--verify", "refs/remotes/%s/%s" % (remote, b), quiet=True).returncode == 0), None)
+
+
+@op
+def compare(repo, base, head="HEAD"):
+    """What a branch adds compared with another, as a pull request would show it: its commits and the combined change."""
+    base, head = arg(base), arg(head)
+    rows = git(repo, "log", "--no-merges", "-n", "200", "--format=%H%x1f%h%x1f%an%x1f%ar%x1f%s", "%s..%s" % (base, head)).splitlines()
+    patch = git(repo, "diff", "-M", "%s...%s" % (base, head))  # three dots: against where they split, like reviewers see
+    return {"commits": [dict(zip(("sha", "short", "author", "when", "subject"), r.split("\x1f"))) for r in rows], "patch": clip(patch)}
+
+
+@op
+def pr_link(repo, name, base=None):
+    """The hosting site's 'create a pull request' page for a branch that's online."""
+    name = arg(name)
+    src_remote = run(repo, "config", "branch.%s.remote" % name, quiet=True).stdout.strip()
+    if not src_remote or src_remote == ".":
+        raise GitError("Upload this branch first, then open a pull request.")
+    base = base or team_main(repo)
+    if not base:
+        raise GitError("Couldn't tell which branch this should go into.")
+    to_remote, into = base.split("/", 1)
+    host, src = parse_remote(git(repo, "remote", "get-url", src_remote, quiet=True).strip())
+    _, dest = parse_remote(git(repo, "remote", "get-url", to_remote, quiet=True).strip())
+    branch = run(repo, "config", "branch.%s.merge" % name, quiet=True).stdout.strip()[len("refs/heads/"):] or name
+    q = urllib.parse.quote
+    if host == "github.com":
+        head = branch if src == dest else "%s:%s" % (src.split("/")[0], branch)
+        return "https://github.com/%s/compare/%s...%s?expand=1" % (dest, q(into), q(head, safe="/:"))
+    if host == "bitbucket.org":
+        target = into if src == dest else "%s::%s" % (dest, into)
+        return "https://bitbucket.org/%s/pull-requests/new?source=%s&dest=%s&t=1" % (src, q(branch, safe=""), q(target, safe=""))
+    if host and "gitlab" in host:
+        return "https://%s/%s/-/merge_requests/new?merge_request%%5Bsource_branch%%5D=%s&merge_request%%5Btarget_branch%%5D=%s" % (host, src, q(branch, safe=""), q(into, safe=""))
+    raise GitError("Opening pull requests works with GitHub, GitLab and Bitbucket.")
+
 
 @op
 def sync(repo, force=False):
@@ -659,11 +794,12 @@ def sync(repo, force=False):
             return dict(res, got=got)
     sent = int(git(repo, "rev-list", "--count", "@{u}..HEAD", quiet=True)) if tracked else -1  # -1: newly published
     flags = ["--follow-tags"] + (["--force-with-lease"] if force else [])
+    url = None
     if not tracked:
-        git(repo, "push", *flags, "-u", remote, "HEAD")
+        url = push(repo, *flags, "-u", remote, "HEAD")
     elif sent or force:  # to the server this branch is linked to, the same one "ahead/behind" is counted against
-        git(repo, "push", *flags, git(repo, "config", "branch.%s.remote" % branch, quiet=True).strip())
-    return {"got": got, "sent": sent}
+        url = push(repo, *flags, git(repo, "config", "branch.%s.remote" % branch, quiet=True).strip())
+    return {"got": got, "sent": sent, "pr_url": url}
 
 
 @op
@@ -722,8 +858,7 @@ def sync_other(repo, name, download_only_branch):
     if not src:
         if download_only_branch:
             return {"problem": "only downloads, but the server doesn't have it."}
-        git(repo, "push", "-u", main_remote(repo), name)
-        return {"got": 0, "sent": -1}
+        return {"got": 0, "sent": -1, "pr_url": push(repo, "-u", main_remote(repo), name)}
     if download_only_branch and linked != src:
         git(repo, "branch", "--set-upstream-to", src, name, quiet=True)
     ahead, behind = (int(n) for n in git(repo, "rev-list", "--left-right", "--count", "%s...%s" % (ref, src), quiet=True).split())
@@ -746,7 +881,7 @@ def sync_other(repo, name, download_only_branch):
     if ahead:
         remote = git(repo, "config", "branch.%s.remote" % name, quiet=True).strip()
         target = git(repo, "config", "branch.%s.merge" % name, quiet=True).strip()
-        git(repo, "push", "--follow-tags", remote, "%s:%s" % (ref, target))
+        push(repo, "--follow-tags", remote, "%s:%s" % (ref, target))
     return {"got": behind, "sent": ahead}
 
 
@@ -796,13 +931,13 @@ def link_to(repo, remote):
     if run(repo, "rev-parse", "-q", "--verify", "refs/remotes/%s/%s" % (remote, branch), quiet=True).returncode == 0:
         git(repo, "branch", "--set-upstream-to", "%s/%s" % (remote, branch))
         return {"uploaded": False}
-    git(repo, "push", "-u", remote, "HEAD")
-    return {"uploaded": True}
+    return {"uploaded": True, "pr_url": push(repo, "-u", remote, "HEAD")}
 
 
 @op
 def publish_branches(repo, names):
-    git(repo, "push", "-u", main_remote(repo), *[arg(n) for n in names])
+    url = push(repo, "-u", main_remote(repo), *[arg(n) for n in names])
+    return {"pr_url": url if len(names) == 1 else None}
 
 
 @op
@@ -947,9 +1082,17 @@ def raw(repo, command):
 
 
 @op
-def set_identity(repo, name, email):
-    git(repo, "config", "--global", "user.name", arg(name))
-    git(repo, "config", "--global", "user.email", arg(email))
+def set_identity(repo, name, email, project_only=False):
+    where = "--local" if project_only else "--global"
+    git(repo, "config", where, "user.name", arg(name))
+    git(repo, "config", where, "user.email", arg(email))
+
+
+@op
+def clear_project_identity(repo):
+    """Go back to the name and email used for all projects."""
+    for key in ("user.name", "user.email"):
+        git(repo, "config", "--local", "--unset", key, ok=(0, 5))
 
 
 @op
@@ -1007,6 +1150,8 @@ class Handler(BaseHTTPRequestHandler):
             page = (HERE / "krazygit.html").read_text(encoding="utf-8").replace("__TOKEN__", TOKEN)
             # The page can run Git commands, so it may only load code from KrazyGit itself, never from the internet.
             return self.reply(page.encode(), "text/html; charset=utf-8", [("Content-Security-Policy", CSP)])
+        if self.path == "/guide.md":  # the built-in Guide, see guide.md
+            return self.reply((HERE / "guide.md").read_bytes(), "text/markdown; charset=utf-8")
         name = self.path[len("/vendor/"):] if self.path.startswith("/vendor/") else None
         if name in VENDOR:  # only these exact files, so nothing else in the folder can be fetched
             return self.reply((HERE / "vendor" / name).read_bytes(), VENDOR[name])

@@ -11,6 +11,7 @@
 - **Branches made easy:** separate views for branches on your computer and online, search, tick several and act on them at once, current branch always on top.
 - **Conflicts it can actually help with.** It compares both sides (and the original), suggests the choice that loses nothing, and can fix whole files in one click. When both sides changed the same line, it says so and leaves the decision to you.
 - **Side-by-side diffs** with line numbers, or inline if you prefer.
+- **Ready for pull requests.** Preview what reviewers will see, then open the pull request on GitHub, GitLab or Bitbucket in one click. New branches start from the team's latest work.
 - **Hard to break.**
   - Most actions show an **Undo** button.
   - Deleted branches, tags and stashes go to a **Recycle bin**.
@@ -18,7 +19,7 @@
   - **Undo history** can rewind a branch to any earlier moment.
   - It also warns before you commit passwords or huge files.
 - **Safe defaults for teams.** `master`/`main` only download when a project has a team server and your own copy, and new branches are published where your other branches already go.
-- **Learn as you go.** "What Git did" shows the exact commands it ran.
+- **Learn as you go.** A built-in **Guide** explains Git and every screen in plain English: press **?** next to any title. "What Git did" shows the exact commands it ran.
 
 ## Install
 
@@ -60,6 +61,7 @@ Contributions are very welcome, especially from people who find Git confusing: t
 | `krazygit.py` | A small local web server; every Git action is one function marked `@op`. Python standard library only. |
 | `krazygit.html` | The whole interface: plain HTML, CSS and JavaScript, no frameworks. |
 | `build-app.sh` | Builds the Mac launcher, `KrazyGit.app`. |
+| `guide.md` | The in-app Guide, in plain Markdown. Each `## Title {#id}` is an article. |
 | `vendor/` | [highlight.js](https://highlightjs.org) 11.12.0 for syntax colours, plus the licences for it and for the [Lucide](https://lucide.dev) 1.49.0 icons inlined in `krazygit.html`. |
 | `test_krazygit.py` | Runs every Git action against throwaway repositories. |
 | `test_suggestions.js` | Checks the conflict suggestions. |
@@ -80,6 +82,7 @@ The same checks run automatically on every pull request.
 - **Plain English in the interface.** Name things by what people want ("Sync", "Undo this commit"), not Git jargon, and keep it short.
 - **Nothing should lose work.** Anything destructive needs a backup, the Recycle bin, or an Undo, and a test that proves it.
 - **Keep changes small and focused,** and add a check to the test file for new behaviour.
+- **Update the Guide** (`guide.md`) in the same change whenever something people can see changes. The tests check that its links still work.
 
 Found a bug or have an idea? [Open an issue](https://github.com/heybee72/krazygit/issues) and include what you clicked and what you expected.
 
