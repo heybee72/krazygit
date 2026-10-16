@@ -387,7 +387,7 @@ const MAIN = ['main', 'master', 'develop', 'dev', 'trunk']
 const MARK = /^(<{7}|={7}|>{7})( |\r?$)/m
 const JUNK = /(^|\/)(node_modules|\.DS_Store|\.env|vendor|dist|__pycache__|\.idea|\.vscode|\.venv|venv)(\/|$)/
 const S = { repos: [], repo: null, filter: '', adv: store('adv') === '1', closed: null, tipsOpen: false, diffMode: store('diffMode') || 'split' }
-const fresh = () => Object.assign(S, { st: null, err: null, tab: 'changes', f: {}, amend: false, sel: null, diff: '', log: [], logRef: 'HEAD',
+const fresh = () => Object.assign(S, { st: null, err: null, tab: 'branches', f: {}, amend: false, sel: null, diff: '', log: [], logRef: 'HEAD',
   logLimit: 100, search: '', commit: null, bin: null, lost: null, reflog: null, stashView: null, stashDiff: '', cf: null, cfPath: null, cmdOut: '', fetched: 0,
   bview: 'local', bq: '', bsort: 'recent', bremote: '', bsel: new Set() })
 fresh()
