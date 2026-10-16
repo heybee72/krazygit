@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>KrazyGit</title>
+<link rel="stylesheet" href="/vendor/highlight-light.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="/vendor/highlight-dark.min.css" media="(prefers-color-scheme: dark)">
+<script src="/vendor/highlight.min.js"></script>
 <style>
 :root {
   --bg: #FFFFFF; --side: #F3F4F6; --panel: #FFFFFF; --sunk: #F7F8FA; --ink: #1B1F24; --muted: #5F6B7A; --faint: #98A2B3;
@@ -34,8 +37,7 @@ body { margin: 0; display: grid; grid-template-columns: 236px minmax(0, 1fr); ba
 h1, h2, h3, h4 { margin: 0; line-height: 1.25 }
 p { margin: 0 }
 code, .mono { font-family: var(--mono); font-size: 12.5px }
-.ic { flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round }
-.ic.fill { fill: currentColor; stroke: none }
+.ic { flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round }
 .faint { color: var(--faint) }
 .hint { color: var(--muted); font-size: 13px }
 .spacer { flex: 1 }
@@ -222,10 +224,8 @@ table.dt { width: 100%; border-collapse: collapse; table-layout: fixed; font: 12
 .dt.split4 td.n:nth-child(3) { border-left: 1px solid var(--rule) }
 .dt .add { background: var(--add-bg) }
 .dt .del { background: var(--del-bg) }
-.dt td.c.add, .dt tr.add td.c { color: var(--add) }
-.dt td.c.del, .dt tr.del td.c { color: var(--del) }
-.dt td.c.add::before, .dt tr.add td.c::before { content: "+"; display: inline-block; width: 1.1em; margin-left: -1.1em }
-.dt td.c.del::before, .dt tr.del td.c::before { content: "−"; display: inline-block; width: 1.1em; margin-left: -1.1em }
+.dt td.c.add::before, .dt tr.add td.c::before { content: "+"; display: inline-block; width: 1.1em; margin-left: -1.1em; color: var(--add) }
+.dt td.c.del::before, .dt tr.del td.c::before { content: "−"; display: inline-block; width: 1.1em; margin-left: -1.1em; color: var(--del) }
 .dt td.e { background: var(--sunk) }
 .dt tr.file td { font: 600 13px/1.4 var(--font); background: var(--sunk); padding: 8px 12px; border-top: 1px solid var(--rule) }
 .dt tr.file:first-child td { border-top: 0 }
@@ -267,7 +267,7 @@ dialog .help dl { grid-template-columns: 1fr }
 .cf-files button.on { background: var(--sel); border-color: var(--accent-line); color: var(--accent) }
 .cf-head h3 { margin: 0; font-family: var(--mono); font-size: 14px; word-break: break-all }
 pre.ctx, .blk pre { font: 12.5px/1.55 var(--mono); margin: 0; padding: 8px 12px; white-space: pre-wrap; word-break: break-word }
-pre.ctx { color: var(--muted) }
+pre.ctx { color: var(--muted); opacity: .7 }
 .gap { display: block; font-family: var(--font); font-size: 12px; padding: 2px 0; border-block: 1px dashed var(--rule); margin: 4px 0 }
 .blk { border: 1px solid var(--warn-line); border-radius: 9px; margin: 8px 0; overflow: hidden }
 .blk.done { border-color: var(--rule); border-left: 3px solid var(--add) }
@@ -394,44 +394,45 @@ fresh()
 const val = (id, dflt = '') => S.f[id] ?? dflt
 
 // ---------- icons (24px line icons) ----------
+// Icons: Lucide (ISC licence, lucide.dev), only the ones KrazyGit uses. See vendor/LICENSE-lucide.txt.
 const ICONS = {
-  edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
-  branch: '<circle cx="6" cy="5.5" r="2.5"/><circle cx="6" cy="18.5" r="2.5"/><circle cx="18" cy="7" r="2.5"/><path d="M6 8v8"/><path d="M18 9.5c0 4.5-12 3.5-12 6.5"/>',
-  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
-  sync: '<path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 20v-4h-4"/>',
-  alert: '<path d="M12 3.5 2.5 20h19Z"/><path d="M12 10v4"/><path d="M12 17h.01"/>',
-  box: '<rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10h14V9"/><path d="M10 13h4"/>',
-  tag: '<path d="M3 12V4h8l10 10-8 8Z"/><circle cx="7.5" cy="8.5" r="1.5"/>',
-  trash: '<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v5M14 11v5"/>',
-  undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
-  term: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3"/><path d="M13 15h4"/>',
-  sliders: '<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>',
-  folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/>',
-  refresh: '<path d="M20 12a8 8 0 1 1-2.3-5.7L20 8.5"/><path d="M20 3.5v5h-5"/>',
-  plus: '<path d="M12 5v14M5 12h14"/>',
-  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
-  check: '<path d="m5 12.5 4.5 4.5L19 7"/>',
-  checkc: '<circle cx="12" cy="12" r="9"/><path d="m8 12.5 3 3 5-6"/>',
+  edit: '<path d="M13 21h8"/><path d="m15 5 4 4"/><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>',
+  branch: '<path d="M15 6a9 9 0 0 0-9 9V3"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/>',
+  clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  sync: '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+  alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  box: '<rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>',
+  tag: '<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>',
+  trash: '<path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+  undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/>',
+  term: '<path d="m7 11 2-2-2-2"/><path d="M11 13h4"/><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>',
+  sliders: '<path d="M10 5H3"/><path d="M12 19H3"/><path d="M14 3v4"/><path d="M16 17v4"/><path d="M21 12h-9"/><path d="M21 19h-5"/><path d="M21 5h-7"/><path d="M8 10v4"/><path d="M8 12H3"/>',
+  folder: '<path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>',
+  refresh: '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>',
+  plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  search: '<path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  checkc: '<circle cx="12" cy="12" r="10"/><path d="m16 9-5.5 5.5L8 12"/>',
   chev: '<path d="m6 9 6 6 6-6"/>',
-  dots: '<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>',
-  merge: '<circle cx="6" cy="5.5" r="2.5"/><circle cx="6" cy="18.5" r="2.5"/><circle cx="18" cy="12" r="2.5"/><path d="M6 8v8"/><path d="M6 8.5c0 3.5 5 3.5 9.5 3.5"/>',
-  cloud: '<path d="M7 18a4.5 4.5 0 0 1-.5-9A6 6 0 0 1 18 8.5a4.5 4.5 0 0 1-.5 9.5Z"/>',
-  down: '<path d="M12 4v12M7 11l5 5 5-5"/><path d="M5 20h14"/>',
-  up: '<path d="M12 20V8M7 13l5-5 5 5"/><path d="M5 4h14"/>',
-  help: '<circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.4c-.6.3-1 .8-1 1.5v.4"/><path d="M12 17h.01"/>',
-  power: '<path d="M12 3v8"/><path d="M6.4 6.4a8 8 0 1 0 11.2 0"/>',
-  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
-  laptop: '<rect x="4" y="5" width="16" height="11" rx="1.5"/><path d="M2 19h20"/>',
-  x: '<path d="M6 6l12 12M18 6 6 18"/>',
-  file: '<path d="M14 3H6v18h12V7Z"/><path d="M14 3v4h4"/>',
-  eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
-  arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
-  copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/>',
-  rewind: '<path d="M11 18 4 12l7-6z"/><path d="M20 18l-7-6 7-6z"/>',
-  bulb: '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3Z"/>',
-  shield: '<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6Z"/>',
+  dots: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+  merge: '<circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/>',
+  cloud: '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>',
+  down: '<path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/>',
+  up: '<path d="M12 3v12"/><path d="m17 8-5-5-5 5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>',
+  help: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
+  power: '<path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/>',
+  user: '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  laptop: '<path d="M18 5a2 2 0 0 1 2 2v8.526a2 2 0 0 0 .212.897l1.068 2.127a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45l1.068-2.127A2 2 0 0 0 4 15.526V7a2 2 0 0 1 2-2z"/><path d="M20.054 15.987H3.946"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  file: '<path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/>',
+  eye: '<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>',
+  arrow: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+  copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  rewind: '<path d="M12 6a2 2 0 0 0-3.414-1.414l-6 6a2 2 0 0 0 0 2.828l6 6A2 2 0 0 0 12 18z"/><path d="M22 6a2 2 0 0 0-3.414-1.414l-6 6a2 2 0 0 0 0 2.828l6 6A2 2 0 0 0 22 18z"/>',
+  bulb: '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
+  shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
 }
-const ic = (n, size = 16) => `<svg class="ic${n === 'dots' ? ' fill' : ''}" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`
+const ic = (n, size = 16) => `<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`
 const attrs = data => Object.entries(data).map(([k, v]) => `data-${k}="${esc(v)}"`).join(' ')
 function btn(label, act, data = {}, cls = '', disabled = false, icon = '', title = '') {
   return `<button class="${cls}" data-act="${act}" ${attrs(data)} ${disabled ? 'disabled' : ''} ${title ? `title="${esc(title)}"` : ''}>${icon ? ic(icon) : ''}${esc(label)}</button>`
@@ -746,28 +747,33 @@ function nextStep(s) {
 
 // Unified diff text -> rows with line numbers. Header lines only count before a file's first hunk,
 // so a removed line like "-- comment" is never mistaken for a "---" header.
+// Syntax colours from highlight.js, one line at a time (simple, and a broken line can't spoil the rest).
+// Unknown file types, or a missing library, just show plain text.
+const langOf = path => { const ext = (String(path).match(/\.([\w+-]+)$/) || [])[1]?.toLowerCase(); return ext && window.hljs?.getLanguage(ext) ? ext : null }
+const code = (line, lang) => { if (!lang || !line) return esc(line); try { return hljs.highlight(line, { language: lang, ignoreIllegals: true }).value } catch { return esc(line) } }
+const shownCode = (t, lang) => t.replace(/\r?\n$/, '').split(/\r?\n/).map(l => code(l, lang)).join('\n')
 function parseDiff(text) {
-  const rows = []
-  let o = 0, n = 0, inHunk = false, m
+  const rows = [], big = text.length > 400000  // very big diffs stay plain so they stay fast
+  let o = 0, n = 0, inHunk = false, m, lang = null
   for (const l of text.replace(/\n$/, '').split('\n')) {
-    if (l.startsWith('diff --git ')) { inHunk = false; rows.push({ t: 'file', text: l.replace(/^diff --git a\/(.*) b\/.*$/, '$1') }) }
+    if (l.startsWith('diff --git ')) { inHunk = false; const file = l.replace(/^diff --git a\/(.*) b\/.*$/, '$1'); lang = big ? null : langOf(file); rows.push({ t: 'file', text: file }) }
     else if ((m = l.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@ ?(.*)/))) { inHunk = true; o = +m[1]; n = +m[2]; rows.push({ t: 'hunk', text: m[3] }) }
     else if (!inHunk) { if (/^(new file|deleted file|similarity|rename |copy |old mode|new mode|Binary files)/.test(l)) rows.push({ t: 'note', text: l }) }
-    else if (l[0] === '-') rows.push({ t: 'del', o: o++, text: l.slice(1) })
-    else if (l[0] === '+') rows.push({ t: 'add', n: n++, text: l.slice(1) })
-    else if (l[0] !== '\\') rows.push({ t: 'ctx', o: o++, n: n++, text: l.slice(1) })
+    else if (l[0] === '-') rows.push({ t: 'del', o: o++, text: l.slice(1), lang })
+    else if (l[0] === '+') rows.push({ t: 'add', n: n++, text: l.slice(1), lang })
+    else if (l[0] !== '\\') rows.push({ t: 'ctx', o: o++, n: n++, text: l.slice(1), lang })
   }
   return rows
 }
 const wide = (r, cols) => `<tr class="${r.t}"><td colspan="${cols}">${esc(r.text) || '&nbsp;'}</td></tr>`
 function diffInline(rows) {
   return `<table class="dt"><colgroup><col class="cn"><col class="cn"><col></colgroup>${rows.map(r => ['file', 'hunk', 'note'].includes(r.t) ? wide(r, 3)
-    : `<tr class="${r.t}"><td class="n">${r.o ?? ''}</td><td class="n">${r.n ?? ''}</td><td class="c">${esc(r.text)}</td></tr>`).join('')}</table>`
+    : `<tr class="${r.t}"><td class="n">${r.o ?? ''}</td><td class="n">${r.n ?? ''}</td><td class="c">${code(r.text, r.lang)}</td></tr>`).join('')}</table>`
 }
 function diffSplit(rows) {
   const out = ['<tr class="sidehead"><td colspan="2">Before</td><td colspan="2">After</td></tr>']
   let dels = [], adds = []
-  const cell = (r, no) => r ? `<td class="n ${r.t}">${no}</td><td class="c ${r.t}">${esc(r.text)}</td>` : '<td class="n e"></td><td class="c e"></td>'
+  const cell = (r, no) => r ? `<td class="n ${r.t}">${no}</td><td class="c ${r.t}">${code(r.text, r.lang)}</td>` : '<td class="n e"></td><td class="c e"></td>'
   const flush = () => {  // pair each run of removed lines with the added lines that replaced them
     for (let i = 0; i < Math.max(dels.length, adds.length); i++) out.push(`<tr>${cell(dels[i], dels[i]?.o)}${cell(adds[i], adds[i]?.n)}</tr>`)
     dels = []; adds = []
@@ -776,7 +782,8 @@ function diffSplit(rows) {
     if (r.t === 'del') { dels.push(r); continue }
     if (r.t === 'add') { adds.push(r); continue }
     flush()
-    out.push(r.t === 'ctx' ? `<tr><td class="n">${r.o}</td><td class="c">${esc(r.text)}</td><td class="n">${r.n}</td><td class="c">${esc(r.text)}</td></tr>` : wide(r, 4))
+    const c = r.t === 'ctx' && code(r.text, r.lang)
+    out.push(r.t === 'ctx' ? `<tr><td class="n">${r.o}</td><td class="c">${c}</td><td class="n">${r.n}</td><td class="c">${c}</td></tr>` : wide(r, 4))
   }
   flush()
   return `<table class="dt split4"><colgroup><col class="cn"><col><col class="cn"><col></colgroup>${out.join('')}</table>`
@@ -1205,24 +1212,24 @@ function conflictFile(f, [mine, theirs]) {
         btn('Fix this file', 'cfFixFile', {}, 'primary big', false, 'check'))
     : card('warn', 'alert', `${plural(hard, 'clash', 'clashes')} need${hard === 1 ? 's' : ''} your decision`,
         easy.length ? `KrazyGit can handle the other ${easy.length}.` : hard === 1 ? 'Pick a side below.' : 'Pick a side for each one below.', easy.length ? btn(`Use the ${easy.length} safe choice${easy.length === 1 ? '' : 's'}`, 'cfApplyAll', {}, 'big', false, 'bulb') : '')
-  const solo = pending.length === 1 && !hard
-  return title + summary + `<div>${cf.segs.map((x, i) => x.text !== undefined ? context(x.text, i === 0, i === last) : clash(x, i, mine, theirs, solo)).join('')}</div>
+  const solo = pending.length === 1 && !hard, lang = langOf(f.path)
+  return title + summary + `<div>${cf.segs.map((x, i) => x.text !== undefined ? context(x.text, i === 0, i === last, lang) : clash(x, i, mine, theirs, solo, lang)).join('')}</div>
     ${blocks.length > 1 && !pending.length ? `<div class="btns" style="margin-top:14px">${save}</div>` : ''}`
 }
-function context(text, first, last) {
+function context(text, first, last, lang) {
   const lines = text.split(/(?<=\n)/)
-  if (lines.length <= 8) return `<pre class="ctx">${shown(text)}</pre>`
+  if (lines.length <= 8) return `<pre class="ctx">${shownCode(text, lang)}</pre>`
   const head = first ? [] : lines.slice(0, 3), tail = last ? [] : lines.slice(-3)
-  return `<pre class="ctx">${head.length ? shown(head.join('')) : ''}<span class="gap">${plural(lines.length - head.length - tail.length, 'unchanged line')}</span>${tail.length ? shown(tail.join('')) : ''}</pre>`
+  return `<pre class="ctx">${head.length ? shownCode(head.join(''), lang) : ''}<span class="gap">${plural(lines.length - head.length - tail.length, 'unchanged line')}</span>${tail.length ? shownCode(tail.join(''), lang) : ''}</pre>`
 }
-function clash(x, i, mine, theirs, solo = false) {
+function clash(x, i, mine, theirs, solo = false, lang = null) {
   if (x.editing) return `<div class="blk"><div class="blk-bar"><span>Write exactly what this part should say</span>${btn('Done', 'cfDone', { i }, 'primary')}</div>
     <textarea id="cfe${i}" data-cf="${i}" spellcheck="false" rows="${Math.min(20, x.draft.split('\n').length + 1)}" aria-label="Edit this part">\n${esc(x.draft)}</textarea></div>`
-  if (x.res !== undefined) return `<div class="blk done"><div class="blk-bar"><span>${ic('check', 14)} ${esc(x.choice)}</span>${btn('Change', 'cfUndo', { i }, 'link')}</div><pre>${shown(x.res) || '<i>(removed)</i>'}</pre></div>`
+  if (x.res !== undefined) return `<div class="blk done"><div class="blk-bar"><span>${ic('check', 14)} ${esc(x.choice)}</span>${btn('Change', 'cfUndo', { i }, 'link')}</div><pre>${shownCode(x.res, lang) || '<i>(removed)</i>'}</pre></div>`
   const a = advise(x, mine, theirs), rec = a.pick, O = new Set(keyLines(x.ours)), T = new Set(keyLines(x.theirs))
   const label = { ours: `Keep ${mine.toLowerCase()}`, theirs: `Keep ${theirs.toLowerCase()}`, combine: 'Combine both' }
   const lines = (text, other) => text ? text.replace(/\r?\n$/, '').split(/\r?\n/).map(l =>
-    `<span class="ln ${l.trim() && !other.has(l.trim()) ? 'uniq' : 'same'}">${esc(l) || ' '}</span>`).join('') : '<i>(nothing)</i>'
+    `<span class="ln ${l.trim() && !other.has(l.trim()) ? 'uniq' : 'same'}">${code(l, lang) || ' '}</span>`).join('') : '<i>(nothing)</i>'
   const extra = only => `<span class="badge ${only.length ? 'here' : ''}">${only.length ? `${plural(only.length, 'line')} only here` : 'nothing extra'}</span>`
   const side = (cls, name, text, other, only, pick) => `<div class="side ${cls}"><div class="blk-bar"><b>${name}</b>${extra(only)}
     ${btn('Keep this', 'cfPick', { i, pick }, rec === pick ? 'primary' : '')}</div><pre>${lines(text, other)}</pre></div>`
@@ -1231,7 +1238,7 @@ function clash(x, i, mine, theirs, solo = false) {
       ${menu([btn('Combine both, no duplicates', 'cfPick', { i, pick: 'combine' }, '', false, 'merge'), btn('Keep both as they are', 'cfPick', { i, pick: 'both' }, '', false, 'copy'),
         btn('Edit by hand', 'cfEdit', { i }, '', false, 'edit')])}</div>
     <div class="sides">${side('mine', esc(mine), x.ours, T, a.onlyO, 'ours')}${side('theirs', esc(theirs) + (x.lt ? ` <span class="faint">(${esc(x.lt)})</span>` : ''), x.theirs, O, a.onlyT, 'theirs')}</div>
-    ${x.hasBase ? `<details class="orig"><summary>Show the original, before either change</summary><pre>${shown(x.base) || '<i>(empty: both sides added new lines here)</i>'}</pre></details>` : ''}</div>`
+    ${x.hasBase ? `<details class="orig"><summary>Show the original, before either change</summary><pre>${shownCode(x.base, lang) || '<i>(empty: both sides added new lines here)</i>'}</pre></details>` : ''}</div>`
 }
 
 // ---------- actions ----------

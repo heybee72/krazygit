@@ -40,6 +40,10 @@ OPS = {}
 QUIET = {"repos", "pick_folder", "add_repo", "state", "diff", "log", "commit_info", "read_file",
          "bin", "lost", "reflog", "merge_preview", "stash_diff", "auto_fetch", "ping", "conflict_base"}
 MOVES = {"commit", "merge", "rebase", "revert", "cherry_pick", "reset_to", "finish", "sync", "undo_commit"}  # undone by moving back
+VENDOR = {"highlight.min.js": "text/javascript; charset=utf-8",  # bundled libraries, see vendor/LICENSE-*
+          "highlight-light.min.css": "text/css; charset=utf-8", "highlight-dark.min.css": "text/css; charset=utf-8"}
+CSP = ("default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
+       "img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'")
 MARKERS = re.compile(r"^(<{7}|>{7}|={7})( |\r?$)", re.M)
 IDLE_QUIT = 600  # seconds without any open window before KrazyGit quits itself
 LAST_SEEN = time.monotonic()  # monotonic: time asleep doesn't count, so closing the lid never quits it
@@ -923,9 +927,11 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
-    def reply(self, body, ctype):
+    def reply(self, body, ctype, extra=()):
         self.send_response(200)
         self.send_header("Content-Type", ctype)
+        for header in extra:
+            self.send_header(*header)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
@@ -936,10 +942,16 @@ class Handler(BaseHTTPRequestHandler):
         return self.headers.get("Host") in ("127.0.0.1:%d" % PORT, "localhost:%d" % PORT)
 
     def do_GET(self):
-        if not self.allowed() or self.path != "/":
+        if not self.allowed():
             return self.send_error(404)
-        page = (HERE / "krazygit.html").read_text(encoding="utf-8").replace("__TOKEN__", TOKEN)
-        self.reply(page.encode(), "text/html; charset=utf-8")
+        if self.path == "/":
+            page = (HERE / "krazygit.html").read_text(encoding="utf-8").replace("__TOKEN__", TOKEN)
+            # The page can run Git commands, so it may only load code from KrazyGit itself, never from the internet.
+            return self.reply(page.encode(), "text/html; charset=utf-8", [("Content-Security-Policy", CSP)])
+        name = self.path[len("/vendor/"):] if self.path.startswith("/vendor/") else None
+        if name in VENDOR:  # only these exact files, so nothing else in the folder can be fetched
+            return self.reply((HERE / "vendor" / name).read_bytes(), VENDOR[name])
+        self.send_error(404)
 
     def do_POST(self):
         global LAST_SEEN

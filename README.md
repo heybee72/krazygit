@@ -42,7 +42,7 @@ KrazyGit quits by itself about ten minutes after you close its window, or use **
 
 ## Privacy and safety
 
-- **It never leaves your computer.** It runs only on your machine, at `127.0.0.1`, and only the window it opened can talk to it.
+- **It never leaves your computer.** It runs only on your machine, at `127.0.0.1`, and only the window it opened can talk to it. The page isn't allowed to load anything from the internet.
 - **It doesn't send anything anywhere.** No accounts, no tracking, no analytics. The only network traffic is Git's own sync with the servers your projects already use.
 - **Sign-ins go through your Git setup.** Your normal Git credentials are used (on a Mac, the Keychain). When a server needs a password, a standard macOS dialog asks for it.
 - **Your files stay readable by other tools.** Its own data is plain Git: deleted items are parked under `refs/krazygit-trash/` (empty the Recycle bin to remove them), and your project list is in `~/.krazygit.json`.
@@ -53,13 +53,14 @@ Linux and Windows: `python3 krazygit.py` works and opens in your browser, but th
 
 Contributions are very welcome, especially from people who find Git confusing: that's who this is for.
 
-**How it's built.** There's no build step and there are no dependencies, on purpose:
+**How it's built.** There's no build step and nothing to install, on purpose. Two small libraries are bundled: copied into `vendor/`, never loaded from the internet.
 
 | File | What's in it |
 |---|---|
 | `krazygit.py` | A small local web server; every Git action is one function marked `@op`. Python standard library only. |
 | `krazygit.html` | The whole interface: plain HTML, CSS and JavaScript, no frameworks. |
 | `build-app.sh` | Builds the Mac launcher, `KrazyGit.app`. |
+| `vendor/` | [highlight.js](https://highlightjs.org) 11.12.0 for syntax colours, plus the licences for it and for the [Lucide](https://lucide.dev) 1.49.0 icons inlined in `krazygit.html`. |
 | `test_krazygit.py` | Runs every Git action against throwaway repositories. |
 | `test_suggestions.js` | Checks the conflict suggestions. |
 
@@ -75,7 +76,7 @@ The same checks run automatically on every pull request.
 
 **House rules:**
 
-- **No new dependencies.** If the standard library or the browser can do it, use that.
+- **No new dependencies.** If the standard library or the browser can do it, use that. If a library is truly worth it, copy a pinned version into `vendor/` (checksum-checked against the official release) together with its licence. Never load code from a CDN: the page can run Git commands.
 - **Plain English in the interface.** Name things by what people want ("Sync", "Undo this commit"), not Git jargon, and keep it short.
 - **Nothing should lose work.** Anything destructive needs a backup, the Recycle bin, or an Undo, and a test that proves it.
 - **Keep changes small and focused,** and add a check to the test file for new behaviour.
@@ -84,4 +85,4 @@ Found a bug or have an idea? [Open an issue](https://github.com/heybee72/krazygi
 
 ## Licence
 
-[MIT](LICENSE) © 2026 Abraham Bossey
+[MIT](LICENSE) © 2026 Abraham Bossey. Includes [highlight.js](https://highlightjs.org) (BSD-3-Clause) and [Lucide](https://lucide.dev) icons (ISC); their licences are in `vendor/`.

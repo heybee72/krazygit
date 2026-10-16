@@ -261,6 +261,23 @@ s = st()
 assert "feature" in s["download_only"] and any(x["name"] == "legacy-branch" for x in op["bin"](repo=repo))
 assert not subprocess.run(["git", "for-each-ref", "refs/easygit-trash"], cwd=repo, capture_output=True, text=True).stdout
 
+# the server hands out the page and the bundled libraries only, and the page can't load anything from the internet
+import threading, urllib.error, urllib.request
+srv = g.ThreadingHTTPServer(("127.0.0.1", 0), g.Handler)
+g.PORT = srv.server_address[1]
+threading.Thread(target=srv.serve_forever, daemon=True).start()
+get = lambda path: urllib.request.urlopen("http://127.0.0.1:%d%s" % (g.PORT, path), timeout=5)
+page = get("/")
+assert "default-src 'none'" in page.headers["Content-Security-Policy"] and b"/vendor/highlight.min.js" in page.read()
+assert get("/vendor/highlight.min.js").read().startswith(b"/*!") and get("/vendor/highlight-dark.min.css").status == 200
+for path in ("/vendor/LICENSE-lucide.txt", "/vendor/../krazygit.py", "/krazygit.py", "/vendor/"):
+    try:
+        get(path)
+        raise AssertionError("served " + path)
+    except urllib.error.HTTPError as e:
+        assert e.code == 404, path
+srv.shutdown()
+
 # safety rails
 for bad in (lambda: op["init"](path=str(Path.home())),
             lambda: op["read_file"](repo=repo, path="../../etc/passwd"),
