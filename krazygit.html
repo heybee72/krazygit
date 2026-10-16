@@ -445,7 +445,7 @@ const menu = items => `<details class="pop"><summary class="btnlike icon ghost" 
 // ---------- talking to the server ----------
 let busyN = 0, workingTimer
 const WORKING = { sync: 'Syncing with the server…', fetch: 'Checking the server…', lost: 'Searching for lost work…', merge: 'Merging…', rebase: 'Rebasing…',
-  commit: 'Committing…', switch: 'Switching branch…', add_repo: 'Looking inside that folder…', merge_preview: 'Checking for clashes…', raw: 'Running…',
+  commit: 'Committing…', switch: 'Switching branch…', add_repo: 'Looking inside that folder…', merge_preview: 'Checking for clashes…', raw: 'Running…', sync_branches: 'Syncing branches…',
   publish_branches: 'Uploading…', delete_remote_branches: 'Deleting from the server…', track_branches: 'Making copies…' }
 function busy(on, op) {
   busyN += on ? 1 : -1
@@ -542,7 +542,7 @@ function toast(text, tone = 'ok', detail = null, undo = null) {
   el.querySelector('.x').onclick = () => el.remove()
   if (undo) el.querySelector('.undo').onclick = () => { el.remove(); guarded(undo) }
   $('#toasts').append(el)
-  if (tone !== 'err') setTimeout(() => el.remove(), undo ? 10000 : 5000)
+  if (tone !== 'err') setTimeout(() => el.remove(), undo || tone === 'warn' ? 10000 : 5000)
 }
 function showError(e) {
   const msg = e?.error ?? String(e)
@@ -847,6 +847,18 @@ function changesView(s) {
 }
 
 // ---------- Branches ----------
+const arrows = t => { const a = /ahead (\d+)/.exec(t), b = /behind (\d+)/.exec(t); return [b && '↓' + b[1], a && '↑' + a[1]].filter(Boolean).join(' ') }
+// Sync branches you're not on. The server reports any branch that needs you (a clash, say) and leaves it untouched.
+async function syncBranches(names) {
+  let res
+  try { res = await api('sync_branches', { repo: S.repo, names }) } catch (e) { showError(e); return refresh() }
+  const done = res.filter(r => !r.problem && !r.conflicts), stuck = res.filter(r => r.problem || r.conflicts)
+  const got = done.reduce((n, r) => n + (r.got || 0), 0), sent = done.reduce((n, r) => n + Math.max(r.sent || 0, 0), 0), published = done.filter(r => r.sent === -1).length
+  const what = [got && `downloaded ${plural(got, 'commit')}`, sent && `uploaded ${plural(sent, 'commit')}`, published && `published ${plural(published, 'branch', 'branches')}`].filter(Boolean).join(', ')
+  if (done.length) toast(`${done.length === 1 ? done[0].name : `Synced ${plural(done.length, 'branch', 'branches')}`}: ${what || 'already up to date'}.`)
+  if (stuck.length) toast(stuck.map(r => r.conflicts ? `${r.name} has clashes: see Conflicts.` : /^[A-Z]/.test(r.problem) ? `${r.name}: ${r.problem}` : `${r.name} ${r.problem}`).join(' '), 'warn')
+  return refresh()
+}
 function track(t) {
   return t.replace(/ahead (\d+)/, '↑$1 to upload').replace(/behind (\d+)/, '↓$1 to download')
 }
@@ -858,18 +870,19 @@ function branchModel(s) {
   const selectable = b => !paused && (remote || b.name !== s.branch || s.detached)
   const merged = b => remote ? s.remote_merged.includes(b.name) && !MAIN.includes(shortName(b.name)) : s.merged.includes(b.name) && !MAIN.includes(b.name) && b.name !== s.branch
   const isOld = b => +b.ts < oldTs
+  const needsSync = b => !remote && b.track && b.track !== 'gone' && b.name !== s.branch  // behind or ahead of the server
   let list = all.filter(b => !q || b.name.toLowerCase().includes(q) || b.subject.toLowerCase().includes(q))
   if (remote && S.bremote) list = list.filter(b => b.name.startsWith(S.bremote + '/'))
   if (S.bsort === 'name') list = [...list].sort((a, b) => a.name.localeCompare(b.name))
   const top = remote ? s.upstream : s.branch
   list = [...list].sort((a, b) => (b.name === top) - (a.name === top))
   for (const n of [...S.bsel]) if (!all.some(b => b.name === n && selectable(b))) S.bsel.delete(n)
-  return { remote, paused, all, list, pick: list.filter(selectable), selectable, merged, isOld }
+  return { remote, paused, all, list, pick: list.filter(selectable), selectable, merged, isOld, needsSync }
 }
 function branchesView(s) {
   const m = branchModel(s), host = remoteHost(s), locals = new Set(s.branches.map(b => b.name)), multi = Object.keys(s.remotes).length > 1
   const remoteShort = new Set(s.remote_branches.map(b => shortName(b.name))), onServer = b => b.upstream || remoteShort.has(b.name)
-  const nMerged = m.pick.filter(m.merged).length, nOld = m.pick.filter(m.isOld).length, selVisible = m.pick.filter(b => S.bsel.has(b.name)).length
+  const nMerged = m.pick.filter(m.merged).length, nOld = m.pick.filter(m.isOld).length, nSync = m.pick.filter(m.needsSync).length, selVisible = m.pick.filter(b => S.bsel.has(b.name)).length
   const head = `<div class="vhead"><h2>Branches</h2>${m.remote ? btn('Check for new branches', 'fetchNow', {}, 'ghost', false, 'refresh')
     : m.paused ? '' : btn('New branch', 'newBranch', {}, 'primary', false, 'plus')}</div>`
   const seg = `<div class="seg" role="tablist" aria-label="Where the branches are">
@@ -877,7 +890,7 @@ function branchesView(s) {
     <button class="${m.remote ? 'on' : ''}" data-act="bView" data-view="remote" role="tab" aria-selected="${m.remote}" ${hasRemote(s) ? '' : 'disabled title="Not connected to a server yet. Connect in Settings."'}>
       ${ic('cloud')}${multi ? 'Online' : `On ${esc(host)}`} <span class="n">${s.remote_branches.length}</span></button></div>`
   const filters = `<div class="filters">${seg}<div class="search">${ic('search', 14)}<input id="bq" type="search" placeholder="Search branches" value="${esc(S.bq)}" autocomplete="off" aria-label="Search branches"></div>
-    ${nMerged || nOld ? `<span class="hint">Select</span>${nMerged ? btn(`Merged · ${nMerged}`, 'bPick', { which: 'merged' }, 'chip', false, '', 'Select branches already merged into ' + s.branch) : ''}
+    ${nMerged || nOld || nSync ? `<span class="hint">Select</span>${nSync ? btn(`Needs sync · ${nSync}`, 'bPick', { which: 'sync' }, 'chip', false, '', 'Select branches that are behind or ahead of the server') : ''}${nMerged ? btn(`Merged · ${nMerged}`, 'bPick', { which: 'merged' }, 'chip', false, '', 'Select branches already merged into ' + s.branch) : ''}
       ${nOld ? btn(`Older than 3 months · ${nOld}`, 'bPick', { which: 'old' }, 'chip', false, '', 'Select branches with no commits for 3 months') : ''}` : ''}
     <span class="spacer"></span>${m.remote && multi ? `<select id="bremote" data-change="bRemote" aria-label="Which server"><option value="">All servers</option>${Object.keys(s.remotes).map(r =>
       `<option value="${esc(r)}" ${S.bremote === r ? 'selected' : ''}>${esc(serverName(s, r))}</option>`).join('')}</select>` : ''}
@@ -896,10 +909,12 @@ function branchesView(s) {
     return `<div class="row ${S.bsel.has(b.name) ? 'sel' : ''}">
       <input type="checkbox" data-act="bToggle" data-name="${esc(b.name)}" ${S.bsel.has(b.name) ? 'checked' : ''} ${m.selectable(b) ? '' : 'disabled'} aria-label="Select ${esc(b.name)}" ${cur ? 'title="You’re on this branch"' : ''}>
       <div class="main"><div class="name">${esc(b.name)}${tags}</div><div class="meta">${esc(b.subject)} <span class="faint">${esc(b.when)}</span></div></div>
-      ${m.paused ? '' : `<div class="acts">${cur ? '' : btn('Switch', 'switch', { name: b.name }, '', false, 'arrow')}
+      ${m.paused ? '' : `<div class="acts">${m.needsSync(b) ? btn(`Sync ${arrows(b.track)}`, 'syncBranch', { name: b.name }, 'ghost', false, 'sync', 'Download and upload without switching to it') : ''}
+        ${cur ? '' : btn('Switch', 'switch', { name: b.name }, '', false, 'arrow')}
         ${cur || s.detached ? '' : btn('Merge', 'merge', { name: b.name }, 'ghost', false, 'merge', `Bring its commits into ${s.branch}`)}
         ${menu([btn('Rename', 'rename', { name: b.name }, '', false, 'edit'), btn('New branch from here', 'newBranch', { start: b.name }, '', false, 'plus'),
           btn('See its history', 'branchHistory', { name: b.name }, '', false, 'clock'),
+          !cur && b.upstream ? btn('Sync without switching', 'syncBranch', { name: b.name }, '', false, 'sync') : '',
           !onServer(b) && hasRemote(s) ? btn(`Upload to ${host}`, 'publishOne', { name: b.name }, '', false, 'up') : '',
           !cur && !s.detached && S.adv ? btn(`Rebase ${s.branch} onto this`, 'rebase', { name: b.name }, '', false, 'branch') : '',
           hasRemote(s) ? (s.download_only.includes(b.name) ? btn('Allow uploads', 'toggleDl', { name: b.name }, '', false, 'up')
@@ -923,7 +938,7 @@ function branchesView(s) {
   const rows = m.list.map(m.remote ? remoteRow : localRow).join('') || `<div class="empty"><p>No branch matches “${esc(S.bq)}”.</p></div>`
   const bulk = S.bsel.size ? `<div class="bulk" role="region" aria-label="Selected branches"><b>${S.bsel.size} selected</b>
     ${m.remote ? btn('Get local copies', 'bulkTrack', {}, '', false, 'down') + btn(`Delete from ${host}`, 'bulkDeleteRemote', {}, 'danger-btn', false, 'trash')
-      : (hasRemote(s) ? btn(`Upload to ${host}`, 'bulkPublish', {}, '', false, 'up') : '') + btn('Delete', 'bulkDelete', {}, 'danger-btn', false, 'trash')}
+      : (hasRemote(s) ? btn('Sync', 'bulkSync', {}, '', false, 'sync', 'Download and upload without switching to them') + btn(`Upload to ${host}`, 'bulkPublish', {}, '', false, 'up') : '') + btn('Delete', 'bulkDelete', {}, 'danger-btn', false, 'trash')}
     ${iconBtn('x', 'Clear selection', 'bClear')}</div>` : ''
   return head + filters + banner + `<div class="list">${lhead}${rows}</div>${bulk}`
 }
@@ -1502,7 +1517,7 @@ const ACT = {
   bView: d => { S.bview = d.view; S.bsel.clear(); render() },
   bToggle: (d, el) => { if (el.checked) S.bsel.add(d.name); else S.bsel.delete(d.name); render() },
   bAll: (d, el) => { const m = branchModel(S.st); if (el.checked) m.pick.forEach(b => S.bsel.add(b.name)); else S.bsel.clear(); render() },
-  bPick: d => { const m = branchModel(S.st); S.bsel = new Set(m.pick.filter(d.which === 'merged' ? m.merged : m.isOld).map(b => b.name)); render() },
+  bPick: d => { const m = branchModel(S.st); S.bsel = new Set(m.pick.filter({ merged: m.merged, old: m.isOld, sync: m.needsSync }[d.which]).map(b => b.name)); render() },
   bClear: () => { S.bsel.clear(); render() },
   bSort: (d, el) => { S.bsort = el.value; render() },
   bulkDelete: async () => {
@@ -1515,6 +1530,8 @@ const ACT = {
     if (gone.length) toast(`Deleted ${plural(gone.length, 'branch', 'branches')}. They’re in the Recycle bin.`, 'ok', null, undoAll('branch', gone))
     return refresh()
   },
+  syncBranch: d => syncBranches([d.name]),
+  bulkSync: () => { const names = [...S.bsel]; S.bsel.clear(); return syncBranches(names) },
   bulkPublish: () => { const names = [...S.bsel]; S.bsel.clear(); return act('publish_branches', { names }, `Uploaded ${plural(names.length, 'branch', 'branches')} to ${remoteHost(S.st)}.`) },
   publishOne: d => act('publish_branches', { names: [d.name] }, `Uploaded ${d.name} to ${remoteHost(S.st)}.`),
   bulkTrack: () => { const names = [...S.bsel]; S.bsel.clear(); return act('track_branches', { names }, `Made local copies of ${plural(names.length, 'branch', 'branches')}.`) },

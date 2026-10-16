@@ -254,6 +254,57 @@ base = op["conflict_base"](repo=repo, path="imports.txt")
 assert "|||||||" in base and "use B;" in base and "use C;" in base and read("imports.txt") == on_disk
 op["finish"](repo=repo, kind="merge", action="abort")
 
+# sync a branch without switching to it: catch up, combine when both sides moved, leave clashes alone, upload
+def mate_commit(branch, path, text, msg):
+    for args in (["fetch", "-q", "origin"], ["switch", "-q", "-C", branch, "origin/" + branch]):
+        subprocess.run(["git", *args], cwd=mate2, check=True, capture_output=True)
+    Path(mate2, path).write_text(text)
+    for args in (["add", "-A"], ["-c", "user.name=M", "-c", "user.email=m@x", "commit", "-qm", msg], ["push", "-q", "origin", branch]):
+        subprocess.run(["git", *args], cwd=mate2, check=True, capture_output=True)
+
+
+def rev(where, name):
+    return subprocess.run(["git", "rev-parse", name], cwd=where, capture_output=True, text=True).stdout.strip()
+
+
+sh("branch", "side", "main")
+sh("push", "-q", "-u", "upstream", "side")
+mate_commit("side", "side.txt", "one\n", "mate 1")
+files_before, status_before = sorted(os.listdir(repo)), st()["files"]
+assert op["sync_branches"](repo=repo, names=["side"]) == [{"got": 1, "sent": 0, "name": "side"}]
+assert rev(repo, "side") == rev(team, "side") and st()["branch"] == "main"
+assert sorted(os.listdir(repo)) == files_before and st()["files"] == status_before  # your files are never touched
+sh("switch", "-q", "side")
+write("local.txt", "l\n")
+sh("add", "local.txt")
+sh("commit", "-qm", "my side work")
+sh("switch", "-q", "main")
+mate_commit("side", "side2.txt", "two\n", "mate 2")
+res = op["sync_branches"](repo=repo, names=["side"])[0]
+assert res == {"got": 1, "sent": 2, "name": "side"}, res  # my commit plus the combining one
+on_team = subprocess.run(["git", "ls-tree", "--name-only", "side"], cwd=team, capture_output=True, text=True).stdout.split()
+assert {"local.txt", "side.txt", "side2.txt"} <= set(on_team) and rev(repo, "side") == rev(team, "side")
+sh("switch", "-q", "side")
+write("side.txt", "mine\n")
+sh("add", "side.txt")
+sh("commit", "-qm", "mine")
+sh("switch", "-q", "main")
+mate_commit("side", "side.txt", "theirs\n", "theirs")
+mine = rev(repo, "side")
+res = op["sync_branches"](repo=repo, names=["side"])[0]
+assert "clash" in res["problem"] and rev(repo, "side") == mine, res
+# a download-only branch you're not on catches up and never uploads
+op["set_download_only"](repo=repo, name="main", on=True)
+sh("switch", "-q", "fresh-work")
+assert "only downloads" in op["sync_branches"](repo=repo, names=["main"])[0]["problem"]  # it has unshared commits: reported, not uploaded
+sh("branch", "-f", "main", "upstream/main")
+mate_commit("main", "news.txt", "n\n", "team news")
+team_main = rev(team, "main")
+assert op["sync_branches"](repo=repo, names=["main"]) == [{"got": 1, "sent": 0, "name": "main"}]
+assert rev(repo, "main") == team_main == rev(team, "main") and st()["branch"] == "fresh-work"
+sh("switch", "-q", "main")
+op["set_download_only"](repo=repo, name="main", on=False)
+
 # things saved under the app's old name (EasyGit) carry over: Recycle bin items and branch settings
 sh("update-ref", "refs/easygit-trash/branch/1700000000000/legacy-branch", "HEAD")
 sh("config", "branch.feature.easygitDownloadOnly", "true")

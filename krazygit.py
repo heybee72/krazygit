@@ -687,8 +687,67 @@ def follow_ref(repo, branch):
     main = main_remote(repo)
     if run(repo, "rev-parse", "-q", "--verify", "refs/remotes/%s/%s" % (main, branch), quiet=True).returncode == 0:
         return "%s/%s" % (main, branch)
-    r = run(repo, "rev-parse", "--abbrev-ref", "@{u}", quiet=True)
+    r = run(repo, "rev-parse", "--abbrev-ref", branch + "@{u}", quiet=True)
     return r.stdout.strip() if r.returncode == 0 else None
+
+
+@op
+def sync_branches(repo, names):
+    """Sync branches without switching to them: catch up with the server, combine when Git can do it
+    cleanly, upload your commits. A branch that needs you (a clash, say) is reported and left untouched."""
+    current = git(repo, "branch", "--show-current", quiet=True).strip()
+    git(repo, "fetch", "--all", "--prune")
+    open_elsewhere = {line[len("branch refs/heads/"):] for line in git(repo, "worktree", "list", "--porcelain", quiet=True).splitlines()
+                      if line.startswith("branch refs/heads/")}
+    only_down, results = download_only(repo, names), []
+    for name in map(arg, names):
+        try:
+            if name == current:
+                r = sync(repo)
+            elif name in open_elsewhere:
+                r = {"problem": "is open in another worktree, so sync it there."}
+            else:
+                r = sync_other(repo, name, name in only_down)
+        except GitError as e:
+            r = {"problem": hint(str(e)) or str(e).splitlines()[0]}
+        results.append(dict(r, name=name))
+    return results
+
+
+def sync_other(repo, name, download_only_branch):
+    ref = "refs/heads/" + name
+    old = git(repo, "rev-parse", ref, quiet=True).strip()
+    linked = run(repo, "rev-parse", "--abbrev-ref", name + "@{u}", quiet=True).stdout.strip()
+    src = follow_ref(repo, name) if download_only_branch else linked
+    if not src:
+        if download_only_branch:
+            return {"problem": "only downloads, but the server doesn't have it."}
+        git(repo, "push", "-u", main_remote(repo), name)
+        return {"got": 0, "sent": -1}
+    if download_only_branch and linked != src:
+        git(repo, "branch", "--set-upstream-to", src, name, quiet=True)
+    ahead, behind = (int(n) for n in git(repo, "rev-list", "--left-right", "--count", "%s...%s" % (ref, src), quiet=True).split())
+    if download_only_branch and ahead:
+        return {"problem": "has its own commits, and it only downloads. Switch to it to move them to a new branch."}
+    new = old
+    if behind and not ahead:
+        new = git(repo, "rev-parse", src, quiet=True).strip()  # just catch up
+    elif behind:  # both sides have new commits: combine them without touching your files, if Git can do it cleanly
+        r = run(repo, "merge-tree", "--write-tree", ref, src, quiet=True)
+        if r.returncode == 1:
+            return {"problem": "clashes with the server copy. Switch to it to choose what to keep."}
+        if r.returncode:
+            raise GitError((r.stderr or r.stdout).strip() or "Couldn't combine the changes.")
+        new = git(repo, "commit-tree", r.stdout.split()[0], "-p", old, "-p", src,
+                  "-m", "Merge remote-tracking branch '%s' into %s" % (src, name)).strip()
+        ahead += 1
+    if new != old:  # only moves if the branch is still where we found it
+        git(repo, "update-ref", "-m", "KrazyGit: synced with " + src, ref, new, old)
+    if ahead:
+        remote = git(repo, "config", "branch.%s.remote" % name, quiet=True).strip()
+        target = git(repo, "config", "branch.%s.merge" % name, quiet=True).strip()
+        git(repo, "push", "--follow-tags", remote, "%s:%s" % (ref, target))
+    return {"got": behind, "sent": ahead}
 
 
 @op
