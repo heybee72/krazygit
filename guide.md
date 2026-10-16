@@ -57,7 +57,7 @@ The first time, KrazyGit asks for your name and email, because Git puts them on 
 
 [Changes](#tab:changes) lists every file that's different from your last commit.
 
-- **Choose what goes in.** Tick the files for this commit. None ticked means all of them.
+- **Choose what goes in.** Tick the files for this commit. None ticked means all of them. Once some are ticked, they're listed first under **Going in the commit**, and the rest under **Not ticked**.
 - **See the changes** side by side or inline: switch at the top of the diff.
 - **Edited a file after ticking it?** Git would commit the version you ticked. KrazyGit asks whether to include your latest changes.
 - **Add to last commit** puts the changes into your previous commit instead of making a new one. It's only offered while that commit isn't uploaded yet.

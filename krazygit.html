@@ -247,8 +247,9 @@ table.dt { width: 100%; border-collapse: collapse; table-layout: fixed; font: 12
 /* forms */
 .helpq { width: 24px; height: 24px; margin-left: 4px; vertical-align: -3px; color: var(--faint) }
 .helpq:hover { color: var(--accent) }
-.glist .gsec { cursor: default; font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: .04em; color: var(--faint); padding: 12px 10px 4px }
-.glist .gsec:hover { background: none }
+.glist .gsec, .files .gsec { cursor: default; font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: .04em; color: var(--faint); padding: 12px 10px 4px }
+.glist .gsec:hover, .files .gsec:hover { background: none }
+.files .gsec:first-child { padding-top: 6px }
 .glist li:not(.gsec) { padding: 6px 10px }
 .gtext { max-width: 760px; line-height: 1.6 }
 .gtext h3 { font-size: 20px; font-weight: 650; margin: 2px 0 10px }
@@ -857,16 +858,18 @@ function changesView(s) {
   if (!files.length) return head + `<div class="list"><div class="empty">${ic('checkc', 30)}<b>No changes</b><p>Edit files in your code editor and they’ll show up here.</p>
     ${s.has_commits ? `<div class="btns">${pushed(s) ? '' : btn('Edit last message', 'editMessage', {}, 'ghost', false, 'edit')}${btn('Undo last commit', 'undoCommit', {}, 'ghost', false, 'undo')}</div>` : ''}</div></div>`
   const staged = files.filter(isStaged), all = staged.length === files.length, sel = files.find(f => f.path === S.sel)
+  // Some ticked, some not: ticked ones first, like the staged and unstaged lists in other Git tools.
+  const groups = staged.length && !all ? [[`Going in the commit · ${staged.length}`, staged], [`Not ticked · ${files.length - staged.length}`, files.filter(f => !isStaged(f))]] : [[null, files]]
   const label = S.amend ? 'Amend last commit' : staged.length || files.length === 1 ? `Commit ${plural(staged.length || 1, 'file')}` : `Commit all ${files.length} files`
   return head + `<div class="split"><div class="pane-l">
     <div class="lhead"><input type="checkbox" data-act="stageAll" ${all ? 'checked' : ''} ${staged.length && !all ? 'data-mixed' : ''} aria-label="Select all" title="Tick files to choose what goes in. None ticked means all.">
       <span>${plural(files.length, 'changed file')}</span></div>
-    <ul class="files" id="files">${files.map(f => {
+    <ul class="files" id="files">${groups.map(([title, fs]) => (title ? `<li class="gsec">${title}</li>` : '') + fs.map(f => {
       const partial = isStaged(f) && f.y !== '.'
       return `<li class="${S.sel === f.path ? 'sel' : ''}" data-act="select" data-path="${esc(f.path)}">
         <input type="checkbox" data-act="stageToggle" data-path="${esc(f.path)}" data-orig="${esc(f.orig || '')}" ${isStaged(f) && !partial ? 'checked' : ''} ${partial ? 'data-mixed' : ''} aria-label="Include ${esc(f.path)}">
         ${stBadge(f)}${fileName(f.path)}</li>`
-    }).join('')}</ul>
+    }).join('')).join('')}</ul>
     <div class="commit">
       <textarea id="msg" rows="2" placeholder="${esc(suggestMsg(files))}" aria-label="Commit message" title="Leave it empty to use the suggestion">\n${esc(val('msg'))}</textarea>
       <button class="primary big wide" data-act="commit">${ic('check')}${esc(label)}</button>
