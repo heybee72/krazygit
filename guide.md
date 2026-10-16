@@ -7,6 +7,7 @@ KrazyGit lets you use Git without typing commands. It works on the projects alre
 - **The big card at the top** suggests your next step: commit, sync, finish a merge. Press its button, or press × to hide it until you reopen KrazyGit.
 - **Most actions show an Undo button** for a few seconds afterwards.
 - **Deleted branches, tags and stashes go to the [Recycle bin](#guide:bin).** Nothing is gone until you empty it.
+- **It keeps itself up to date.** While its window is open, KrazyGit notices edits you make in your editor within a few seconds, and checks the server for new commits every few minutes.
 - **Curious what happened?** Open **What Git did** at the bottom of the sidebar to see the exact Git commands it ran.
 
 New to Git? Read [Git in five minutes](#guide:git-basics) first.
@@ -100,7 +101,7 @@ See also: [Syncing](#guide:sync), [Merging branches](#guide:merging).
 
 The **Sync** button in the toolbar does everything needed to match the server: it downloads new commits, combines them with yours, then uploads yours.
 
-- **The arrows** show what's waiting: ↓ commits to download, ↑ commits to upload.
+- **The arrows** show what's waiting: ↓ commits to download, ↑ commits to upload. KrazyGit checks the server by itself every few minutes while it's open, so they stay current. To check right now, press **Check for new branches** in Branches › Online.
 - **Publish** appears instead for a branch that isn't online yet. It uploads it for the first time.
 - **Sync other branches without switching** from the Branches list: press **Sync** on a row, or tick several. KrazyGit catches them up and uploads them without touching your files. If one has a clash, it's left alone and reported.
 - **Combining clashes?** When both you and someone else changed the same lines, Sync stops and opens [Conflicts](#guide:conflicts).

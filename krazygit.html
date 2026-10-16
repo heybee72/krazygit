@@ -513,41 +513,43 @@ const undoAll = (kind, list) => list.length ? async () => {
 } : null
 const undoDiscard = d => d?.backup && (() => act('stash_apply', { ref: d.backup }, 'Undone. Your changes are back.'))
 
-async function refresh() {
-  if (!S.repo || S.closed) return render()
-  try {
-    const st = await api('state', { repo: S.repo })
-    const had = S.st?.files.some(f => f.conflict), has = st.files.some(f => f.conflict)
-    if (has && !had) S.tab = 'conflicts'
-    if (S.tab === 'conflicts' && !has && !st.doing) S.tab = 'changes'
-    S.st = st; S.err = null
-  } catch (e) { S.st = null; S.err = e; return render() }
+// bg: a background check. It stays quiet (no busy bar, no error screen) and leaves the page alone when nothing changed.
+async function refresh(bg = false) {
+  if (!S.repo || S.closed) return bg || render()
+  const repo = S.repo
+  let st
+  try { st = await api('state', { repo }, bg) } catch (e) { if (bg) return; S.st = null; S.err = e; return render() }
+  if (S.repo !== repo) return
   // Every few minutes, quietly check the server so "new commits to download" shows up without anyone asking.
-  if (Object.keys(S.st.remotes).length && Date.now() - S.fetched > 5 * 60e3) {
+  if (Object.keys(st.remotes).length && Date.now() - S.fetched > 5 * 60e3) {
     S.fetched = Date.now()
-    const repo = S.repo
-    api('auto_fetch', { repo }, true).then(() => { if (S.repo === repo && !acting) refresh() }).catch(() => {})
+    api('auto_fetch', { repo }, true).then(() => { if (S.repo === repo && !acting) refresh(true) }).catch(() => {})
   }
-  await loadTab().catch(showError)
+  if (bg && JSON.stringify(st) === JSON.stringify(S.st)) return
+  const had = S.st?.files.some(f => f.conflict), has = st.files.some(f => f.conflict)
+  if (has && !had) S.tab = 'conflicts'
+  if (S.tab === 'conflicts' && !has && !st.doing) S.tab = 'changes'
+  S.st = st; S.err = null
+  await loadTab(bg).catch(bg ? () => {} : showError)
   render()
 }
 
-async function loadTab() {
-  const r = { repo: S.repo }, s = S.st
+async function loadTab(bg = false) {
+  const r = { repo: S.repo }, s = S.st, api_ = (op, args) => api(op, args, bg)
   if (S.tab === 'changes') {
     const f = s.files.find(f => f.path === S.sel && !f.conflict)
     S.sel = f ? f.path : null
-    S.diff = f ? await api('diff', { ...r, path: f.path, orig: f.orig, untracked: f.x === '?' }) : ''
+    S.diff = f ? await api_('diff', { ...r, path: f.path, orig: f.orig, untracked: f.x === '?' }) : ''
   }
-  if (S.tab === 'history') S.log = await api('log', { ...r, ref: S.logRef, search: S.search, mode: S.smode, limit: S.logLimit })
+  if (S.tab === 'history') S.log = await api_('log', { ...r, ref: S.logRef, search: S.search, mode: S.smode, limit: S.logLimit })
   if (S.tab === 'tags' && hasRemote(s)) {  // in the background: a slow or offline server mustn't hold up the page
     const repo = S.repo
     api('remote_tags', r, true).then(t => { if (S.repo === repo && S.tab === 'tags') { S.rtags = t; render() } }).catch(() => {})
   }
-  if (S.tab === 'bin') S.bin = await api('bin', r)
-  if (S.tab === 'undo') S.reflog = await api('reflog', r)
+  if (S.tab === 'bin') S.bin = await api_('bin', r)
+  if (S.tab === 'undo') S.reflog = await api_('reflog', r)
   if (S.tab === 'stashes' && S.stashView) {
-    if (s.stashes.some(x => x.ref === S.stashView)) S.stashDiff = await api('stash_diff', { ...r, ref: S.stashView })
+    if (s.stashes.some(x => x.ref === S.stashView)) S.stashDiff = await api_('stash_diff', { ...r, ref: S.stashView })
     else S.stashView = null
   }
   if (S.tab === 'conflicts') {
@@ -1890,7 +1892,11 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'Enter' && t.dataset.enter) { e.preventDefault(); run(t.dataset.enter, t) }
   else if (e.key === 'Enter' && t.id === 'bpq') { e.preventDefault(); $('#bplist [data-act="switch"]')?.click() }
 })
-window.addEventListener('focus', () => { if (!dlg.open && !busyN && !document.querySelector('details.pop[open]')) refresh() }) // pick up edits made in your code editor
+// Background refresh: notice edits made in your code editor, and Git commands run elsewhere, without anyone pressing anything.
+// ponytail: polls every 10 seconds while the window is visible; file-system events would be quicker if big projects need it.
+const quietMoment = () => !S.closed && S.repo && !acting && !busyN && !dlg.open && !document.querySelector('details.pop[open]')
+window.addEventListener('focus', () => { if (quietMoment()) refresh(true) })
+setInterval(() => { if (!document.hidden && quietMoment()) refresh(true) }, 10000)
 setInterval(() => { if (!S.closed) api('ping', {}, true).catch(() => {}) }, 30000) // tells KrazyGit this window is still open
 document.querySelectorAll('[data-ic]').forEach(el => el.insertAdjacentHTML('afterbegin', ic(el.dataset.ic)))
 
