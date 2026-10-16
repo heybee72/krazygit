@@ -2,4 +2,3 @@ __pycache__/
 .DS_Store
 KrazyGit.app/
 dist/
-.claude/
