@@ -31,4 +31,14 @@ assert.equal(combine(x, '\n'), u('A') + u('B') + u('C'))
 // 7. Windows line endings survive combining
 x = { base: 'a\r\n', ours: 'a\r\nb\r\n', theirs: 'a\r\nc\r\n', hasBase: true }
 assert.equal(combine(x, '\r\n'), 'a\r\nb\r\nc\r\n')
+// 8. project colours: each one clearly different from the others, and adding a project never repaints the existing ones
+const line = k => src.slice(src.indexOf(k)).split('\n')[0].replace(/^const /, 'var ')
+const fn = src.slice(src.indexOf('function projColor'), src.indexOf('\n}\n', src.indexOf('function projColor')) + 2)
+eval([line('const hue = '), line('const color = '), line('const PROJ_HUES = '), fn].join('\n'))
+var S = { repos: ['web-app', 'api', 'docs', 'shop', 'admin'].map(n => ({ path: '/Users/me/code/' + n })) }
+const hues = () => S.repos.map(r => +projColor(r.path).match(/\d+/)[0]), before = hues()
+const apart = (a, b) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b))
+before.forEach((h, i) => before.slice(i + 1).forEach(k => assert.ok(apart(h, k) >= 40, `${h} and ${k} are too alike`)))
+S.repos.push({ path: '/Users/me/code/mobile' })
+assert.deepEqual(hues().slice(0, -1), before)
 console.log('all suggestion checks pass')

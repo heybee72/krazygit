@@ -92,7 +92,7 @@ aside { background: var(--side); border-right: 1px solid var(--rule); display: f
 .plist { display: grid; gap: 1px; max-height: 36vh; overflow: auto }
 .plist button { justify-content: flex-start; border: 0; background: none; height: auto; min-height: 34px; padding: 5px 8px; gap: 10px; border-radius: 8px; text-align: left; font-weight: 500 }
 .plist button:hover { background: var(--hover) }
-.plist button.on { background: var(--sel); color: var(--accent) }
+.plist button.on { background: color-mix(in srgb, var(--proj, transparent) 14%, transparent); box-shadow: inset 3px 0 0 var(--proj, transparent) }
 .plist .who b { font-size: 13.5px; font-weight: 600 }
 .tile { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; font-weight: 700; color: #fff; background: var(--accent); flex: none; font-size: 14px }
 .tile.sm { width: 22px; height: 22px; border-radius: 6px; font-size: 11px }
@@ -121,7 +121,8 @@ nav.side .group { font-size: 11.5px; color: var(--faint); padding: 16px 10px 4px
 
 /* main */
 main { display: flex; flex-direction: column; min-width: 0; min-height: 0 }
-.toolbar { display: flex; align-items: center; gap: 8px; padding: 10px 20px; border-bottom: 1px solid var(--rule); flex-wrap: wrap }
+.toolbar { display: flex; align-items: center; gap: 8px; padding: 10px 20px; border-bottom: 1px solid var(--rule); flex-wrap: wrap;
+  box-shadow: inset 0 3px 0 var(--proj, transparent); background: color-mix(in srgb, var(--proj, transparent) 7%, transparent) }
 .picker > summary { height: 32px; font-weight: 600 }
 .picker > summary .ic:first-child { color: var(--accent) }
 .picker .popbox { width: 320px }
@@ -385,6 +386,19 @@ const hostName = url => /github\.com/.test(url) ? 'GitHub' : /gitlab/.test(url) 
 const mb = n => `${Math.round(n / 1048576)} MB`
 const hue = s => [...String(s)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7)
 const color = s => `hsl(${hue(s)} 50% 46%)`
+// Each project's own colour, so you can tell at a glance which one you're in. It comes from the folder, so it stays put,
+// and stays clearly apart from the colours of projects listed above it (it moves along the palette until it does).
+const PROJ_HUES = [214, 145, 28, 272, 335, 178, 45, 2, 245, 95, 300, 195]
+function projColor(path) {
+  const taken = [], gap = h => Math.min(360, ...taken.map(t => Math.min(Math.abs(h - t), 360 - Math.abs(h - t))))
+  for (const r of S.repos) {
+    const start = hue(r.path) % PROJ_HUES.length, options = PROJ_HUES.map((_, k) => PROJ_HUES[(start + k) % PROJ_HUES.length])
+    const h = options.find(h => gap(h) >= 40) ?? options.reduce((a, b) => gap(b) > gap(a) ? b : a)
+    if (r.path === path) return `hsl(${h} 55% 48%)`
+    taken.push(h)
+  }
+  return color(path)
+}
 const initials = s => String(s).split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase() || '?'
 // New files that look like passwords or keys (.env.example and friends are fine to commit).
 const SECRET = /(^|\/)(\.env(?!\.(example|sample|template|dist)$)(\.[\w.-]+)?|id_(rsa|dsa|ecdsa|ed25519)|[^/]*\.(pem|key|p12|pfx|jks|keystore)|credentials(\.json)?|[^/]*secrets?\.(json|ya?ml|txt|env))$/i
@@ -610,6 +624,7 @@ const confirmIt = (title, body, label, cls) => ask({ title, body, buttons: [[lab
 
 // ---------- rendering ----------
 function render() {
+  document.documentElement.style.setProperty('--proj', S.repo ? projColor(S.repo) : 'transparent')
   renderSide()
   document.title = S.st ? `${S.st.name} - KrazyGit` : 'KrazyGit'
   const a = document.activeElement, keep = a?.id && main.contains(a) ? { id: a.id, s: a.selectionStart, e: a.selectionEnd } : null
@@ -631,7 +646,7 @@ function renderRepoList() {
   $('#repos').innerHTML = list.length ? list.map(r => {
     const on = r.path === S.repo
     return `<button class="${on ? 'on' : ''}" data-act="openRepo" data-path="${esc(r.path)}" title="${esc(r.path)}" ${on ? 'aria-current="true"' : ''}>
-      <span class="tile sm" style="background:${color(r.name)}">${esc(r.name[0].toUpperCase())}</span><span class="who"><b>${esc(r.name)}</b>${on ? `<span>${esc(r.short)}</span>` : ''}</span>
+      <span class="tile sm" style="background:${projColor(r.path)}">${esc(r.name[0].toUpperCase())}</span><span class="who"><b>${esc(r.name)}</b>${on ? `<span>${esc(r.short)}</span>` : ''}</span>
       ${r.missing ? '<span class="faint">missing</span>' : ''}</button>`
   }).join('') : `<p class="hint" style="padding:6px 10px">${S.repos.length ? 'No match' : 'No projects yet. Press + to add one.'}</p>`
 }
