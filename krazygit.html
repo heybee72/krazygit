@@ -17,6 +17,7 @@
   --pop-shadow: 0 12px 32px rgba(16, 24, 40, .16), 0 2px 6px rgba(16, 24, 40, .08);
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --proj-bar: 14%; --proj-sel: 18%;  /* how strongly the project's colour tints the toolbar and its sidebar row */
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
@@ -27,6 +28,7 @@
     --add: #7FD3A0; --add-bg: #14301F; --del: #F29C9C; --del-bg: #3A1717;
     --warn: #F3C66E; --warn-bg: #33270C; --warn-line: #8C6A1E; --danger: #FF8A80; --danger-ink: #2B0A06; --ok: #7FD3A0; --ok-bg: #14301F;
     --pop-shadow: 0 12px 32px rgba(0, 0, 0, .5);
+    --proj-bar: 18%; --proj-sel: 24%;
     color-scheme: dark;
   }
 }
@@ -92,7 +94,8 @@ aside { background: var(--side); border-right: 1px solid var(--rule); display: f
 .plist { display: grid; gap: 1px; max-height: 36vh; overflow: auto }
 .plist button { justify-content: flex-start; border: 0; background: none; height: auto; min-height: 34px; padding: 5px 8px; gap: 10px; border-radius: 8px; text-align: left; font-weight: 500 }
 .plist button:hover { background: var(--hover) }
-.plist button.on { background: color-mix(in srgb, var(--proj, transparent) 14%, transparent); box-shadow: inset 3px 0 0 var(--proj, transparent) }
+.plist button.on { background: color-mix(in srgb, var(--proj, transparent) var(--proj-sel), transparent); box-shadow: inset 4px 0 0 var(--proj, transparent) }
+.plist button.on .who span { color: var(--ink) }  /* grey is too faint on the tint */
 .plist .who b { font-size: 13.5px; font-weight: 600 }
 .tile { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; font-weight: 700; color: #fff; background: var(--accent); flex: none; font-size: 14px }
 .tile.sm { width: 22px; height: 22px; border-radius: 6px; font-size: 11px }
@@ -120,9 +123,10 @@ nav.side .group { font-size: 11.5px; color: var(--faint); padding: 16px 10px 4px
 #cmds li.bad { color: var(--danger) }
 
 /* main */
-main { display: flex; flex-direction: column; min-width: 0; min-height: 0 }
-.toolbar { display: flex; align-items: center; gap: 8px; padding: 10px 20px; border-bottom: 1px solid var(--rule); flex-wrap: wrap;
-  box-shadow: inset 0 3px 0 var(--proj, transparent); background: color-mix(in srgb, var(--proj, transparent) 7%, transparent) }
+main { display: flex; flex-direction: column; min-width: 0; min-height: 0; box-shadow: inset 3px 0 0 var(--proj, transparent) }
+.toolbar { display: flex; align-items: center; gap: 8px; padding: 10px 20px; flex-wrap: wrap;
+  border-bottom: 1px solid color-mix(in srgb, var(--proj, transparent) 40%, var(--rule));
+  box-shadow: inset 0 4px 0 var(--proj, transparent); background: color-mix(in srgb, var(--proj, transparent) var(--proj-bar), transparent) }
 .picker > summary { height: 32px; font-weight: 600 }
 .picker > summary .ic:first-child { color: var(--accent) }
 .picker .popbox { width: 320px }
@@ -388,7 +392,7 @@ const hue = s => [...String(s)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 36
 const color = s => `hsl(${hue(s)} 50% 46%)`
 // Each project's own colour, so you can tell at a glance which one you're in. It comes from the folder, so it stays put,
 // and stays clearly apart from the colours of projects listed above it (it moves along the palette until it does).
-const PROJ_HUES = [214, 145, 28, 272, 335, 178, 45, 2, 245, 95, 300, 195]
+const PROJ_HUES = [214, 145, 28, 272, 335, 178, 245, 95, 300, 195]  // no amber or red: those mean warnings and errors
 function projColor(path) {
   const taken = [], gap = h => Math.min(360, ...taken.map(t => Math.min(Math.abs(h - t), 360 - Math.abs(h - t))))
   for (const r of S.repos) {

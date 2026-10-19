@@ -38,7 +38,7 @@ Press **+** next to **Projects** and pick a folder.
 - **A folder with several projects inside** (like `~/code`): KrazyGit finds them and adds them all.
 - **A folder that isn't a Git project yet:** KrazyGit offers to start tracking it.
 
-Click a project in the sidebar to switch to it. Each project has its own colour, along the top of the window and on its tile in the sidebar, so you can tell at a glance which one you're in. **Remove from KrazyGit** in [Settings](#tab:settings) only takes a project off the list: your files and history stay where they are.
+Click a project in the sidebar to switch to it. Each project has its own colour, along the top and left edges of the window and on its tile in the sidebar, so you can tell at a glance which one you're in. **Remove from KrazyGit** in [Settings](#tab:settings) only takes a project off the list: your files and history stay where they are.
 
 > **Tip:** with more than six projects, a search box appears above the list.
 
