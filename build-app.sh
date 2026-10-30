@@ -13,6 +13,12 @@ on run
 		display alert "KrazyGit can’t find its files" message "Keep KrazyGit.app in the same folder as krazygit.py. To put it in your Dock, drag it there instead of moving it. If macOS asked about access to a folder, choose Allow."
 		return
 	end try
+	try
+		do shell script "head -c 1 " & quoted form of py & " > /dev/null"
+	on error
+		display alert "macOS is stopping KrazyGit from opening its files" message "This can happen after a macOS update. Open System Settings › Privacy & Security › Files & Folders, find KrazyGit, and turn on the folder it’s in. Then open KrazyGit again."
+		return
+	end try
 	do shell script "export PATH=/opt/homebrew/bin:/usr/local/bin:$PATH; mkdir -p ~/Library/Logs; nohup python3 " & quoted form of py & " >> ~/Library/Logs/KrazyGit.log 2>&1 &"
 end run
 APPLESCRIPT

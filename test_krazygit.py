@@ -432,6 +432,36 @@ for path in ("/vendor/LICENSE-lucide.txt", "/vendor/../krazygit.py", "/krazygit.
         raise AssertionError("served " + path)
     except urllib.error.HTTPError as e:
         assert e.code == 404, path
+# when macOS stops KrazyGit reading its own folder (it can, after an update): keep working from the copy read
+# earlier, and with no copy, explain what to do instead of sending an empty response
+import shutil
+copy = Path(tempfile.mkdtemp())
+shutil.copy(Path(g.HERE, "krazygit.html"), copy)
+real_here, g.HERE = g.HERE, copy
+assert get("/").status == 200
+(copy / "krazygit.html").chmod(0)
+try:
+    if os.geteuid():  # root can read anything, so this can't be simulated there
+        page = get("/").read()
+        assert b"__TOKEN__" not in page and b"/vendor/highlight.min.js" in page  # the copy from before
+        g.STATIC.clear()
+        try:
+            get("/")
+            raise AssertionError("served a page it couldn't read")
+        except urllib.error.HTTPError as e:
+            help_page = e.read()
+            assert e.code == 503 and b"macOS is stopping KrazyGit" in help_page and g.TOKEN.encode() in help_page
+finally:
+    (copy / "krazygit.html").chmod(0o644)
+    g.HERE = real_here
+    g.STATIC.clear()
+# the privacy hint only for what a macOS privacy block looks like, not for other "Operation not permitted" errors
+for blocked in ("fatal: Unable to read current working directory: Operation not permitted",
+                "PermissionError: [Errno 1] Operation not permitted: '/Users/me/Documents/app'",
+                "fatal: could not open '.git/HEAD' for reading: Operation not permitted"):
+    assert "System Settings" in g.hint(blocked), blocked
+assert "System Settings" not in (g.hint("error: unable to unlink old 'a.txt': Operation not permitted") or "")  # locked in Finder
+assert g.hint("ssh: connect to host github.com port 22: Operation not permitted\nfatal: Could not read from remote repository.").startswith("Couldn't reach the server")
 srv.shutdown()
 
 # the guide: every article has a unique id, and every link and "?" button in the app leads somewhere real

@@ -300,6 +300,7 @@ To learn the commands, open **What Git did** at the bottom of the sidebar: it sh
 - **"Finish or cancel the merge first":** open [Conflicts](#tab:conflicts) and finish, or press Cancel and go back.
 - **"The two histories don't connect":** the server copy was started separately, usually with its own README. Create a new, completely empty repository online and connect to that instead.
 - **"You're on an old commit, not a branch":** you're looking around at history. Switch back to a branch, or create one here to keep any commits.
+- **"macOS is stopping KrazyGit from opening…", "Operation not permitted", or a blank "This page isn't working" window:** macOS has stopped KrazyGit opening the folder it's in or a project's folder, which can happen after a macOS update. Quit KrazyGit, open it again, and choose **Allow** if macOS asks. If it doesn't ask, open System Settings › Privacy & Security › Files & Folders, find KrazyGit (or Terminal, if you start KrazyGit from there), and turn that folder on.
 - **"Another Git program is busy":** wait a moment and try again. If it's stuck, delete `.git/index.lock` in the project.
 - **Something else?** Expand "What Git said" in the error for the details, and check **What Git did** for the commands that ran.
 

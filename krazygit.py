@@ -44,6 +44,9 @@ QUIET = {"repos", "pick_folder", "add_repo", "state", "diff", "log", "commit_inf
 MOVES = {"commit", "merge", "rebase", "revert", "cherry_pick", "reset_to", "finish", "sync", "undo_commit"}  # undone by moving back
 VENDOR = {"highlight.min.js": "text/javascript; charset=utf-8",  # bundled libraries, see vendor/LICENSE-*
           "highlight-light.min.css": "text/css; charset=utf-8", "highlight-dark.min.css": "text/css; charset=utf-8"}
+FILES = {"/": ("krazygit.html", "text/html; charset=utf-8"), "/guide.md": ("guide.md", "text/markdown; charset=utf-8"),
+         **{"/vendor/" + n: ("vendor/" + n, t) for n, t in VENDOR.items()}}  # the only files the page can fetch
+STATIC = {}  # KrazyGit's own files as last read, see static()
 CSP = ("default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
        "img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'")
 MARKERS = re.compile(r"^(<{7}|>{7}|={7})( |\r?$)", re.M)
@@ -65,12 +68,16 @@ HINTS = [
     (r"\[rejected\]|non-fast-forward|fetch first", "The server has commits you don't have yet. Press Sync to combine them, then it uploads yours."),
     (r"no upstream|has no upstream|no tracking information", "This branch isn't on the server yet. Press Publish branch."),
     (r"src refspec .* does not match", "Make your first commit before uploading."),
-    (r"could not resolve host|could not connect|network is unreachable|timed out", "Couldn't reach the server. Check your internet connection, then try again."),
+    (r"could not resolve host|could not connect|connect to host|failed to connect|network is unreachable|timed out", "Couldn't reach the server. Check your internet connection, then try again."),
     (r"repository not found|repository '.*' not found|returned error: 40[34]",
      "The server address is wrong, or your account can't open that repository. Check the address in Settings."),
     (r"could not read (from remote|username|password)|authentication failed|terminal prompts disabled|permission denied \(publickey\)|"
      r"host key verification failed", "Couldn't sign in to the server. Try again and enter your details when asked. "
      "For GitHub, use a personal access token instead of your password."),
+    (r"\[Errno 1\] Operation not permitted|(unable to read current working directory|cannot change to|could not open|unable to open|failed to open)[^\n]*operation not permitted",
+     "If this started after a macOS update, macOS may be stopping KrazyGit from opening this folder. Quit KrazyGit and open it again, "
+     "and choose Allow if macOS asks. If it doesn't, turn on the folder for KrazyGit (or Terminal, if you start KrazyGit from there) "
+     "in System Settings › Privacy & Security › Files & Folders."),
     (r"no configured push destination|does not appear to be a git repository|no such remote",
      "This project isn't connected to GitHub (or another server) yet. Connect it in Settings."),
     (r"already exists", "That name is already taken. Pick another one."),
@@ -1122,15 +1129,15 @@ def call(name, body):
         return {"ok": False, "error": str(e), "hint": hint(str(e))}
     except Exception as e:
         traceback.print_exc()
-        return {"ok": False, "error": "%s: %s" % (type(e).__name__, e)}
+        return {"ok": False, "error": "%s: %s" % (type(e).__name__, e), "hint": hint(str(e))}
 
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
-    def reply(self, body, ctype, extra=()):
-        self.send_response(200)
+    def reply(self, body, ctype, extra=(), status=200):
+        self.send_response(status)
         self.send_header("Content-Type", ctype)
         for header in extra:
             self.send_header(*header)
@@ -1144,18 +1151,18 @@ class Handler(BaseHTTPRequestHandler):
         return self.headers.get("Host") in ("127.0.0.1:%d" % PORT, "localhost:%d" % PORT)
 
     def do_GET(self):
-        if not self.allowed():
+        if not self.allowed() or self.path not in FILES:  # only these exact files, so nothing else in the folder can be fetched
             return self.send_error(404)
-        if self.path == "/":
-            page = (HERE / "krazygit.html").read_text(encoding="utf-8").replace("__TOKEN__", TOKEN)
-            # The page can run Git commands, so it may only load code from KrazyGit itself, never from the internet.
-            return self.reply(page.encode(), "text/html; charset=utf-8", [("Content-Security-Policy", CSP)])
-        if self.path == "/guide.md":  # the built-in Guide, see guide.md
-            return self.reply((HERE / "guide.md").read_bytes(), "text/markdown; charset=utf-8")
-        name = self.path[len("/vendor/"):] if self.path.startswith("/vendor/") else None
-        if name in VENDOR:  # only these exact files, so nothing else in the folder can be fetched
-            return self.reply((HERE / "vendor" / name).read_bytes(), VENDOR[name])
-        self.send_error(404)
+        name, ctype = FILES[self.path]
+        try:
+            body, status = static(name), 200
+        except PermissionError:  # never Chrome's blank "didn't send any data": say what happened and how to fix it
+            name, ctype, body, status = "krazygit.html", "text/html; charset=utf-8", BLOCKED.encode(), 503
+        except FileNotFoundError:
+            return self.send_error(404)
+        if name == "krazygit.html":  # the page can run Git commands, so it may only load code from KrazyGit itself
+            return self.reply(body.replace(b"__TOKEN__", TOKEN.encode()), ctype, [("Content-Security-Policy", CSP)], status)
+        self.reply(body, ctype, status=status)
 
     def do_POST(self):
         global LAST_SEEN
@@ -1173,6 +1180,29 @@ class Handler(BaseHTTPRequestHandler):
                 if name not in QUIET:
                     res["cmds"] = list(CMDS)
         self.reply(json.dumps(res).encode(), "application/json")
+
+
+def static(name):
+    """One of KrazyGit's own files, read fresh so edits show on reload. If macOS stops KrazyGit reading its folder
+    while it's running (it can, after an update), the copy it read last keeps the window working."""
+    try:
+        STATIC[name] = (HERE / name).read_bytes()
+    except OSError:
+        if name not in STATIC:
+            raise
+    return STATIC[name]
+
+
+# Instead of a blank page when macOS won't let KrazyGit read its folder and there's no copy to fall back on.
+BLOCKED = """<!doctype html><meta charset="utf-8"><title>KrazyGit</title>
+<style>body{font:15px/1.55 -apple-system,system-ui,sans-serif;max-width:600px;margin:12vh auto;padding:0 20px;color:#1B1F24;background:#fff}
+@media (prefers-color-scheme:dark){body{color:#E8EAED;background:#17191D}}h1{font-size:22px}li{margin:6px 0}button{font:inherit;padding:6px 14px}</style>
+<h1>macOS is stopping KrazyGit from opening its files</h1>
+<p>This can happen after a macOS update. Your projects are fine. To fix it:</p>
+<ol><li>Press <b>Quit KrazyGit</b>, then open KrazyGit again from the Dock or Finder.</li>
+<li>If macOS asks whether KrazyGit can access a folder, choose <b>Allow</b>.</li>
+<li>If it doesn't ask, open <b>System Settings › Privacy &amp; Security › Files &amp; Folders</b>, find KrazyGit (or Terminal, if you start KrazyGit from there), and turn on the folder it's in. Then open KrazyGit again.</li></ol>
+<p><button onclick="fetch('/api',{method:'POST',headers:{'X-Token':'__TOKEN__'},body:'{&quot;op&quot;:&quot;quit&quot;}'}).then(()=>{document.body.innerHTML='<h1>KrazyGit has quit</h1><p>Open it again from the Dock or Finder.</p>'})">Quit KrazyGit</button></p>"""
 
 
 def open_window(url):
@@ -1219,6 +1249,9 @@ def main():
         print("KrazyGit is already running. Opening it.")
         return open_window(url)
     os.chmod(__file__, 0o755)  # askpass needs to be runnable
+    for name, _ in FILES.values():  # a first copy to fall back on, see static()
+        with contextlib.suppress(OSError):
+            static(name)
     print("KrazyGit is running at %s. It quits by itself 10 minutes after you close its window." % url, flush=True)
     if "--no-open" not in sys.argv:
         threading.Timer(0.3, open_window, [url]).start()
